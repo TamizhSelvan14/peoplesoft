@@ -13,6 +13,10 @@ import PerfReports from './pages/PerfReports'
 import Onboarding from './pages/Onboarding'
 import AuthCallback from './pages/AuthCallback'
 import Unauthorized from './pages/Unauthorized'
+import PerformanceDashboard from './pages/Performance/PerformanceDashboard'
+import PerformanceGoals from './pages/Performance/Goals'
+import PerformanceReviews from './pages/Performance/Reviews'
+import PerformanceAnalytics from './pages/Performance/Analytics'
 import { PrivateRoute, RoleBasedRoute } from './components/RoleBasedRoute'
 
 export default function App() {
@@ -52,6 +56,16 @@ export default function App() {
                     {/* Everyone can see Performance (with different access levels) */}
                     <Link to="/performance">Performance</Link>
 
+                    {/* New Performance Management Routes */}
+                    {(['hr', 'manager'].includes(userRole)) && (
+                        <>
+                            <Link to="/performance/dashboard">Performance Dashboard</Link>
+                            <Link to="/performance/analytics">Analytics</Link>
+                        </>
+                    )}
+                    <Link to="/performance/goals">My Goals</Link>
+                    <Link to="/performance/reviews">Reviews</Link>
+
                     {/* Everyone can see Reports (with different access levels) */}
                     <Link to="/reports/performance">Reports</Link>
 
@@ -83,6 +97,16 @@ export default function App() {
 
                 {/* Performance - All can access but with different views */}
                 <Route path="/performance" element={<PrivateRoute><Performance /></PrivateRoute>} />
+
+                {/* New Performance Management Routes */}
+                <Route path="/performance/dashboard" element={<PrivateRoute><PerformanceDashboard /></PrivateRoute>} />
+                <Route path="/performance/goals" element={<PrivateRoute><PerformanceGoals /></PrivateRoute>} />
+                <Route path="/performance/reviews" element={<PrivateRoute><PerformanceReviews /></PrivateRoute>} />
+                <Route path="/performance/analytics" element={
+                    <RoleBasedRoute allowedRoles={['manager', 'hr']}>
+                        <PerformanceAnalytics />
+                    </RoleBasedRoute>
+                } />
 
                 {/* Reports - All can access but with different views */}
                 <Route path="/reports/performance" element={<PrivateRoute><PerfReports /></PrivateRoute>} />
