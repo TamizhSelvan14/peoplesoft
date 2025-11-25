@@ -7,10 +7,10 @@ import (
 	"os"
 	"time"
 
-	"peoplesoft/config"
 	"peoplesoft/models"
 
 	"github.com/sashabaranov/go-openai"
+	"gorm.io/gorm"
 )
 
 type AIAgentService struct {
@@ -280,10 +280,10 @@ Be concise and helpful.`, userRole)
 	return resp.Choices[0].Message.Content, nil
 }
 
-func (s *AIAgentService) formatResponseWithLLM(data interface{}, context string) string {
+func (s *AIAgentService) formatResponseWithLLM(data interface{}, contextStr string) string {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		return fmt.Sprintf("Data for %s: %v", context, data)
+		return fmt.Sprintf("Data for %s: %v", contextStr, data)
 	}
 
 	ctx := context.Background()
@@ -296,14 +296,14 @@ func (s *AIAgentService) formatResponseWithLLM(data interface{}, context string)
 			},
 			{
 				Role:    openai.ChatMessageRoleUser,
-				Content: fmt.Sprintf("Context: %s\nData: %s", context, string(jsonData)),
+				Content: fmt.Sprintf("Context: %s\nData: %s", contextStr, string(jsonData)),
 			},
 		},
 		MaxTokens: 500,
 	})
 
 	if err != nil {
-		return fmt.Sprintf("Here's the data for %s: %s", context, string(jsonData))
+		return fmt.Sprintf("Here's the data for %s: %s", contextStr, string(jsonData))
 	}
 
 	return resp.Choices[0].Message.Content

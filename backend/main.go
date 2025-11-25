@@ -58,7 +58,7 @@ func main() {
 
 	// Performance routes
 	perf := r.Group("/api/performance")
-	
+
 	perf.Use(middleware.AuthRequired()) // Your JWT middleware
 	{
 		perf.GET("/", controllers.GetTeamPerformances)               // HR only

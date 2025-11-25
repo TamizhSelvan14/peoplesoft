@@ -635,11 +635,18 @@ func GetDashboard(c *gin.Context) {
 		}
 
 		// Pending reviews
-		config.DB.Where("manager_id = ? AND manager_submitted = ?", user.ID, false).Count(&data.PendingReviews)
+		var pendingReviewsCount int64
+		config.DB.Where("manager_id = ? AND manager_submitted = ?", user.ID, false).Count(&pendingReviewsCount)
+		data.PendingReviews = int(pendingReviewsCount)
 
 		// Goals
-		config.DB.Where("manager_id = ?", user.ID).Count(&data.TotalGoals)
-		config.DB.Where("manager_id = ? AND status = ?", user.ID, "completed").Count(&data.CompletedGoals)
+		var totalGoalsCount int64
+		config.DB.Where("manager_id = ?", user.ID).Count(&totalGoalsCount)
+		data.TotalGoals = int(totalGoalsCount)
+		
+		var completedGoalsCount int64
+		config.DB.Where("manager_id = ? AND status = ?", user.ID, "completed").Count(&completedGoalsCount)
+		data.CompletedGoals = int(completedGoalsCount)
 
 	} else if role == "hr" {
 		// HR sees company-wide stats
@@ -664,15 +671,26 @@ func GetDashboard(c *gin.Context) {
 			data.AverageTeamScore = totalScore / float64(scoreCount)
 		}
 
-		config.DB.Where("manager_submitted = ?", false).Count(&data.PendingReviews)
-		config.DB.Model(&models.PerformanceGoal{}).Count(&data.TotalGoals)
-		config.DB.Where("status = ?", "completed").Count(&data.CompletedGoals)
+		var pendingReviewsCount int64
+		config.DB.Where("manager_submitted = ?", false).Count(&pendingReviewsCount)
+		data.PendingReviews = int(pendingReviewsCount)
+		
+		var totalGoalsCount int64
+		config.DB.Model(&models.PerformanceGoal{}).Count(&totalGoalsCount)
+		data.TotalGoals = int(totalGoalsCount)
+		
+		var completedGoalsCount int64
+		config.DB.Where("status = ?", "completed").Count(&completedGoalsCount)
+		data.CompletedGoals = int(completedGoalsCount)
 	} else {
 		// Employee view
 		var goals []models.PerformanceGoal
 		config.DB.Where("employee_id = ?", user.ID).Find(&goals)
 		data.TotalGoals = len(goals)
-		config.DB.Where("employee_id = ? AND status = ?", user.ID, "completed").Count(&data.CompletedGoals)
+		
+		var completedGoalsCount int64
+		config.DB.Where("employee_id = ? AND status = ?", user.ID, "completed").Count(&completedGoalsCount)
+		data.CompletedGoals = int(completedGoalsCount)
 
 		var lastReview models.PerformanceReview
 		config.DB.Where("employee_id = ? AND manager_submitted = ?", user.ID, true).

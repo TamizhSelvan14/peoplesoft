@@ -42,9 +42,10 @@ func SetupRoutes(r *gin.Engine) {
 		api.PUT("/leaves/:id/approve", controllers.ApproveLeave)
 		api.PUT("/leaves/:id/reject", controllers.RejectLeave)
 
-		// Performance
-		api.GET("/performance", controllers.ListPerformance)
-		api.POST("/performance", controllers.CreatePerformance)
+		// Old Performance routes (kept for backward compatibility)
+		// Note: These are handled by the new performance management routes
+		// api.GET("/performance", controllers.ListPerformance)
+		// api.POST("/performance", controllers.CreatePerformance)
 	}
 
 	//pms

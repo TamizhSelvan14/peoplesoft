@@ -106,3 +106,5 @@ func GenerateReport(c *gin.Context) {
 	})
 }
 
+
+
