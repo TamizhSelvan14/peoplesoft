@@ -3,6 +3,7 @@ package routes
 import (
 	"fmt"
 	"peoplesoft/controllers"
+	"peoplesoft/handlers"
 	"peoplesoft/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -66,5 +67,48 @@ func SetupRoutes(r *gin.Engine) {
 
 		// History
 		pms.GET("/my-reviews", controllers.MyReviews)
+	}
+
+	// Performance Management Routes
+	performance := api.Group("/performance")
+	{
+		// Cycles
+		performance.POST("/cycles", middleware.RoleCheck("HR", "hr", "admin"), handlers.CreateCycle)
+		performance.GET("/cycles", handlers.GetCycles)
+		performance.GET("/cycles/:id", handlers.GetCycleByID)
+
+		// Goals
+		performance.POST("/goals", middleware.RoleCheck("Manager", "manager", "HR", "hr", "admin"), handlers.CreateGoal)
+		performance.GET("/goals", handlers.GetGoals)
+		performance.PUT("/goals/:id", handlers.UpdateGoal)
+		performance.POST("/goals/:id/acknowledge", middleware.RoleCheck("Employee", "employee"), handlers.AcknowledgeGoal)
+
+		// Reviews
+		performance.POST("/reviews/:id/self-assessment", middleware.RoleCheck("Employee", "employee"), handlers.SubmitSelfAssessment)
+		performance.POST("/reviews/:id/manager-review", middleware.RoleCheck("Manager", "manager", "HR", "hr", "admin"), handlers.SubmitManagerReview)
+		performance.GET("/reviews", handlers.GetReviews)
+		performance.POST("/reviews/:id/response", middleware.RoleCheck("Employee", "employee"), handlers.EmployeeResponse)
+		performance.GET("/reviews/reports", middleware.RoleCheck("Manager", "manager", "HR", "hr", "admin"), handlers.GetPerformanceReports)
+
+		// Analytics
+		performance.GET("/analytics/dashboard", middleware.RoleCheck("Manager", "manager", "HR", "hr", "admin"), handlers.GetDashboard)
+		performance.GET("/analytics/trends", middleware.RoleCheck("HR", "hr", "admin"), handlers.GetTrends)
+	}
+
+	// Chatbot Routes
+	chatbot := api.Group("/chatbot")
+	{
+		chatbot.POST("/query", handlers.ProcessChatbotQuery)
+		chatbot.POST("/actions/schedule-meeting", handlers.ScheduleMeeting)
+		chatbot.POST("/actions/generate-report", handlers.GenerateReport)
+	}
+
+	// Surveys
+	surveys := api.Group("/surveys")
+	{
+		surveys.POST("/templates", middleware.RoleCheck("HR", "hr", "admin"), handlers.CreateSurveyTemplate)
+		surveys.GET("/templates", handlers.GetSurveyTemplates)
+		surveys.POST("/responses", handlers.SubmitSurveyResponse)
+		surveys.GET("/analytics", middleware.RoleCheck("HR", "hr", "admin"), handlers.GetSurveyAnalytics)
 	}
 }

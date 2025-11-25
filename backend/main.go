@@ -35,6 +35,14 @@ func main() {
 		&models.Goal{},
 		&models.SelfAssessment{},
 		&models.ManagerReview{},
+		// New Performance Management models
+		&models.PerformanceCycle{},
+		&models.PerformanceGoal{},
+		&models.PerformanceReview{},
+		&models.SurveyTemplate{},
+		&models.SurveyResponse{},
+		&models.ChatbotConversation{},
+		&models.AuditLog{},
 	); err != nil {
 		log.Fatalf("AutoMigrate failed: %v", err)
 	}
