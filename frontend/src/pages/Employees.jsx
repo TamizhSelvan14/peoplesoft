@@ -34,11 +34,12 @@ export default function Employees(){
   })
   const [err, setErr] = useState('')
 
-  const managerNameById = useMemo(() => {
-    const m = new Map()
-    rows.forEach(r => m.set(r.id, r.name))
-    return m
-  }, [rows])
+  // No longer needed - backend now returns manager_name directly
+  // const managerNameById = useMemo(() => {
+  //   const m = new Map()
+  //   rows.forEach(r => m.set(r.id, r.name))
+  //   return m
+  // }, [rows])
 
   const [myTeamMode, setMyTeamMode] = useState(false)
 
@@ -249,7 +250,7 @@ export default function Employees(){
               <td>{r.email}</td>
               <td>{r.designation}</td>
               <td>{r.department_id}</td>
-              {!myTeamMode && <td>{r.manager_id ? (managerNameById.get(r.manager_id) || '-') : '-'}</td>}
+              {!myTeamMode && <td>{r.manager_name || '-'}</td>}
               <td>{r.phone}</td>
               <td>{r.location}</td>
               {(role === 'hr' || role === 'manager') && (
