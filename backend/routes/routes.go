@@ -27,7 +27,7 @@ func SetupRoutes(r *gin.Engine) {
 		api.GET("/managers/:managerId/team", controllers.ListTeam)
 
 		// Leaves
-		api.GET("/leaves", controllers.ListLeaves)
+		//	api.GET("/leaves", controllers.ListLeaves)
 		api.POST("/leaves", controllers.CreateLeave)
 		api.PUT("/leaves/:id/approve", controllers.ApproveLeave)
 		api.PUT("/leaves/:id/reject", controllers.RejectLeave)

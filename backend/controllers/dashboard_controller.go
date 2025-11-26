@@ -110,7 +110,7 @@ func GetDashboardStats(c *gin.Context) {
 		fmt.Printf("Manager - Active Goals: %d\n", stats.ActiveGoals)
 
 		config.DB.Table("performances p").
-			Joins("JOIN employees e ON p.employee_id = e.user_id").
+			Joins("JOIN employees e ON p.user_id = e.user_id").
 			Where("e.manager_id = ? AND p.status IN (?)", userID, []string{"in_progress", "in-progress", "pending"}).
 			Count(&stats.UpcomingReviews)
 		fmt.Printf("Manager - Upcoming Reviews: %d\n", stats.UpcomingReviews)
@@ -183,29 +183,63 @@ func getQuarterlyResults(role string, userID uint) *QuarterlyResults {
 		Year:    now.Year(),
 	}
 
-	// For HR, count all goals in system
+	fmt.Printf("\n=== Calculating Quarterly Results ===\n")
+	fmt.Printf("Role: %s, UserID: %d\n", role, userID)
+
+	// For HR, count ALL goals in system
 	if role == "hr" {
-		config.DB.Table("goals").Where("status = 'completed'").Count(&results.GoalsCompleted)
-		config.DB.Table("goals").Count(&results.TotalGoals)
+		// Count completed goals
+		err := config.DB.Table("goals").
+			Where("status = ?", "completed").
+			Count(&results.GoalsCompleted).Error
+
+		if err != nil {
+			fmt.Printf("❌ Error counting completed goals: %v\n", err)
+		} else {
+			fmt.Printf("✅ Completed goals: %d\n", results.GoalsCompleted)
+		}
+
+		// Count total goals
+		err = config.DB.Table("goals").Count(&results.TotalGoals).Error
+		if err != nil {
+			fmt.Printf("❌ Error counting total goals: %v\n", err)
+		} else {
+			fmt.Printf("✅ Total goals: %d\n", results.TotalGoals)
+		}
+
 	} else if role == "manager" {
 		// Manager sees team goals
 		config.DB.Table("goals g").
 			Joins("JOIN employees e ON g.user_id = e.user_id").
-			Where("e.manager_id = ? AND g.status = 'completed'", userID).
+			Where("e.manager_id = ? AND g.status = ?", userID, "completed").
 			Count(&results.GoalsCompleted)
+
 		config.DB.Table("goals g").
 			Joins("JOIN employees e ON g.user_id = e.user_id").
 			Where("e.manager_id = ?", userID).
 			Count(&results.TotalGoals)
+
+		fmt.Printf("✅ Manager - Completed: %d, Total: %d\n", results.GoalsCompleted, results.TotalGoals)
+
 	} else {
 		// Employee sees their own goals
-		config.DB.Table("goals").Where("user_id = ? AND status = 'completed'", userID).Count(&results.GoalsCompleted)
-		config.DB.Table("goals").Where("user_id = ?", userID).Count(&results.TotalGoals)
+		config.DB.Table("goals").
+			Where("user_id = ? AND status = ?", userID, "completed").
+			Count(&results.GoalsCompleted)
+
+		config.DB.Table("goals").
+			Where("user_id = ?", userID).
+			Count(&results.TotalGoals)
+
+		fmt.Printf("✅ Employee - Completed: %d, Total: %d\n", results.GoalsCompleted, results.TotalGoals)
 	}
 
+	// Calculate percentage
 	if results.TotalGoals > 0 {
 		results.GoalsCompletedPercent = int((results.GoalsCompleted * 100) / results.TotalGoals)
 	}
+
+	fmt.Printf("📊 Completion Rate: %d%%\n", results.GoalsCompletedPercent)
 
 	// Mock engagement data
 	results.EngagementScore = 78
@@ -214,21 +248,26 @@ func getQuarterlyResults(role string, userID uint) *QuarterlyResults {
 
 	// Reviews
 	if role == "hr" {
-		config.DB.Table("performances").Where("status = 'completed'").Count(&results.ReviewsCompleted)
-		config.DB.Table("performances").Where("status != 'completed'").Count(&results.ReviewsPending)
+		config.DB.Table("performances").Where("status = ?", "completed").Count(&results.ReviewsCompleted)
+		config.DB.Table("performances").Where("status != ?", "completed").Count(&results.ReviewsPending)
 	} else if role == "manager" {
 		config.DB.Table("performances p").
-			Joins("JOIN employees e ON p.employee_id = e.user_id").
-			Where("e.manager_id = ? AND p.status = 'completed'", userID).
+			Joins("JOIN employees e ON p.user_id = e.user_id").
+			Where("e.manager_id = ? AND p.status = ?", userID, "completed").
 			Count(&results.ReviewsCompleted)
+
 		config.DB.Table("performances p").
-			Joins("JOIN employees e ON p.employee_id = e.user_id").
-			Where("e.manager_id = ? AND p.status != 'completed'", userID).
+			Joins("JOIN employees e ON p.user_id = e.user_id").
+			Where("e.manager_id = ? AND p.status != ?", userID, "completed").
 			Count(&results.ReviewsPending)
 	} else {
-		config.DB.Table("performances").Where("employee_id = ? AND status = 'completed'", userID).Count(&results.ReviewsCompleted)
-		config.DB.Table("performances").Where("employee_id = ? AND status != 'completed'", userID).Count(&results.ReviewsPending)
+		config.DB.Table("performances").Where("employee_id = ? AND status = ?", userID, "completed").Count(&results.ReviewsCompleted)
+		config.DB.Table("performances").Where("employee_id = ? AND status != ?", userID, "completed").Count(&results.ReviewsPending)
 	}
+
+	fmt.Printf("🎯 Final Results: Quarter=%s, Year=%d, Completed=%d, Total=%d, Percent=%d%%\n",
+		results.Quarter, results.Year, results.GoalsCompleted, results.TotalGoals, results.GoalsCompletedPercent)
+	fmt.Printf("=== End Quarterly Results ===\n\n")
 
 	return results
 }
