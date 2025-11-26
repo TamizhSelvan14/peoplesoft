@@ -37,6 +37,7 @@ func main() {
 		&models.Goal{},
 		&models.SelfAssessment{},
 		&models.ManagerReview{},
+		&models.LeaveAllocation{},
 	); err != nil {
 		log.Fatalf("AutoMigrate failed: %v", err)
 	}
