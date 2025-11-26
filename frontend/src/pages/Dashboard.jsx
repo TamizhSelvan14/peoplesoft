@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth0 } from '@auth0/auth0-react';
 import client from "../api/client";
 import "./Dashboard.css";
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+import { Doughnut } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 
 // Register Chart.js components
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -90,9 +91,6 @@ export default function Dashboard() {
     const displayName = getDisplayName();
     const greeting = getGreeting();
 
-    const chartRef = useRef(null);
-    const chartInstance = useRef(null);
-
     const [stats, setStats] = useState({
         pendingLeaves: 0,
         upcomingReviews: 0,
@@ -127,12 +125,17 @@ export default function Dashboard() {
     const loadDashboard = async () => {
         try {
             setLoading(true);
-            console.log("Fetching dashboard data...");
+            console.log("🔍 About to fetch dashboard data...");
+            console.log("🔑 Token:", localStorage.getItem('token') ? 'EXISTS' : 'MISSING');
+            console.log("📧 Email:", localStorage.getItem('email'));
+            console.log("👤 Role:", localStorage.getItem('role'));
 
             const res = await client.get("/api/dashboard/stats");
-            console.log("Dashboard response:", res.data);
+            console.log("✅ Dashboard response:", res.data);
 
-            // Set stats - ensure we're reading the correct property names
+
+
+            // Set stats
             if (res.data.stats) {
                 setStats({
                     pendingLeaves: res.data.stats.pendingLeaves || res.data.stats.PendingLeaves || 0,
@@ -176,68 +179,6 @@ export default function Dashboard() {
         }
     };
 
-    useEffect(() => {
-        if (!quarterly || !chartRef.current) return;
-
-        if (chartInstance.current) {
-            chartInstance.current.destroy();
-        }
-
-        const ctx = chartRef.current.getContext("2d");
-
-        const completed = quarterly.goals_completed || quarterly.GoalsCompleted || 0;
-        const total = quarterly.total_goals || quarterly.TotalGoals || 0;
-        const remaining = Math.max(0, total - completed);
-
-        chartInstance.current = new ChartJS(ctx, {
-            type: "doughnut",
-            data: {
-                labels: ["Completed", "Remaining"],
-                datasets: [
-                    {
-                        data: [completed, remaining],
-                        backgroundColor: ["#48bb78", "#e53e3e"],
-                        borderWidth: 0,
-                        hoverOffset: 4,
-                    },
-                ],
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: "bottom",
-                        labels: {
-                            padding: 15,
-                            font: {
-                                size: 12,
-                            },
-                        },
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const label = context.label || '';
-                                const value = context.parsed || 0;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                                return `${label}: ${value} (${percentage}%)`;
-                            }
-                        }
-                    }
-                },
-            },
-        });
-
-        return () => {
-            if (chartInstance.current) {
-                chartInstance.current.destroy();
-            }
-        };
-    }, [quarterly]);
-
     const handleLogout = () => {
         localStorage.clear();
         auth0Logout({
@@ -246,6 +187,57 @@ export default function Dashboard() {
             }
         });
     };
+
+    // Prepare chart data
+    const getChartData = () => {
+        if (!quarterly) return null;
+
+        const completed = quarterly.goals_completed || quarterly.GoalsCompleted || 0;
+        const total = quarterly.total_goals || quarterly.TotalGoals || 0;
+        const remaining = Math.max(0, total - completed);
+
+        return {
+            labels: ['Completed', 'Remaining'],
+            datasets: [
+                {
+                    data: [completed, remaining],
+                    backgroundColor: ['#48bb78', '#e53e3e'],
+                    borderWidth: 0,
+                    hoverOffset: 4,
+                },
+            ],
+        };
+    };
+
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                display: true,
+                position: 'bottom',
+                labels: {
+                    padding: 15,
+                    font: {
+                        size: 12,
+                    },
+                },
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const label = context.label || '';
+                        const value = context.parsed || 0;
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                        return `${label}: ${value} (${percentage}%)`;
+                    }
+                }
+            }
+        },
+    };
+
+    const chartData = getChartData();
 
     return (
         <div className="dashboard-container">
@@ -366,10 +358,10 @@ export default function Dashboard() {
                     {/* Pie Chart */}
                     <div className="white-card goals-card">
                         <h3>🎯 Goals Completion</h3>
-                        {quarterly && (quarterly.total_goals > 0 || quarterly.TotalGoals > 0) ? (
+                        {chartData && chartData.datasets[0].data.reduce((a, b) => a + b, 0) > 0 ? (
                             <>
                                 <div className="pie-wrapper">
-                                    <canvas ref={chartRef} id="goalsPieChart"></canvas>
+                                    <Doughnut data={chartData} options={chartOptions} />
                                 </div>
                                 <div className="goals-summary">
                                     {quarterly.goals_completed || quarterly.GoalsCompleted} of {quarterly.total_goals || quarterly.TotalGoals} goals completed
