@@ -28,7 +28,7 @@ body {
     display: flex;
     min-height: 100vh;
     background: transparent;
-    padding: 20px;
+    padding: 80px 20px 20px 20px;
     box-sizing: border-box;
     gap: 20px;
 }
