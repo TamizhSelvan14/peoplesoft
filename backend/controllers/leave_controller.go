@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"peoplesoft/config"
 	"peoplesoft/models"
@@ -36,17 +37,20 @@ type LeaveRequest struct {
 
 // POST /api/leaves
 func CreateLeave(c *gin.Context) {
+	fmt.Println("test create leaves ")
 	var req LeaveRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
+	fmt.Println("test create leaves 1")
 
 	userID := c.GetUint("userID")
 	if userID == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing user id in context"})
 		return
 	}
+	fmt.Println("test create leaves 2")
 
 	start, err1 := time.Parse("2006-01-02", req.StartDate)
 	end, err2 := time.Parse("2006-01-02", req.EndDate)
@@ -54,6 +58,7 @@ func CreateLeave(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid date format, expected YYYY-MM-DD"})
 		return
 	}
+	fmt.Println("test create leaves 3")
 
 	// Disallow dates before today
 	today := time.Now().Truncate(24 * time.Hour)
@@ -69,6 +74,7 @@ func CreateLeave(c *gin.Context) {
 	}
 
 	days := workingDaysBetween(start, end)
+
 	if days <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "no working days in selected range"})
 		return
@@ -220,15 +226,32 @@ func ApproveLeave(c *gin.Context) {
 	role := c.GetString("role")
 	approverID := c.GetUint("userID")
 
-	if role != "manager" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "only managers can approve"})
+	// Only manager or HR can approve
+	if role != "manager" && role != "hr" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "only managers or HR can approve"})
 		return
 	}
 
 	id := c.Param("id")
 
-	res := config.DB.Model(&models.Leave{}).
+	// Load the leave first
+	var leave models.Leave
+	if err := config.DB.
 		Where("id = ? AND status = ?", id, "pending").
+		First(&leave).Error; err != nil {
+
+		c.JSON(http.StatusBadRequest, gin.H{"error": "leave not found or not pending"})
+		return
+	}
+
+	// ❗ Managers cannot approve their own leave
+	if role == "manager" && leave.UserID == approverID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "managers cannot approve their own leave; HR must approve"})
+		return
+	}
+
+	// HR can approve anything; manager can approve team leaves
+	res := config.DB.Model(&leave).
 		Updates(map[string]interface{}{
 			"status":      "approved",
 			"approved_by": approverID,
@@ -236,10 +259,6 @@ func ApproveLeave(c *gin.Context) {
 
 	if res.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to approve leave"})
-		return
-	}
-	if res.RowsAffected == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "leave not found or not pending"})
 		return
 	}
 
@@ -252,8 +271,9 @@ func RejectLeave(c *gin.Context) {
 	role := c.GetString("role")
 	approverID := c.GetUint("userID")
 
-	if role != "manager" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "only managers can reject"})
+	// Manager or HR can reject
+	if role != "manager" && role != "hr" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "only managers or HR can reject"})
 		return
 	}
 
@@ -262,18 +282,26 @@ func RejectLeave(c *gin.Context) {
 	tx := config.DB.Begin()
 
 	var leave models.Leave
-	if err := tx. // optional row lock if you use it
-			Where("id = ? AND status = ?", id, "pending").
-			First(&leave).Error; err != nil {
+	if err := tx.
+		Where("id = ? AND status = ?", id, "pending").
+		First(&leave).Error; err != nil {
 
 		tx.Rollback()
 		c.JSON(http.StatusBadRequest, gin.H{"error": "leave not found or not pending"})
 		return
 	}
 
-	// compute working days for this leave
+	// ❗ Managers cannot reject their own leave either
+	if role == "manager" && leave.UserID == approverID {
+		tx.Rollback()
+		c.JSON(http.StatusForbidden, gin.H{"error": "managers cannot reject their own leave; HR must handle it"})
+		return
+	}
+
+	// 🔁 Restore allocation (workingDaysBetween + getOrCreateAllocation)
 	days := workingDaysBetween(leave.StartDate, leave.EndDate)
 	year := leave.StartDate.Year()
+
 	alloc, err := getOrCreateAllocation(leave.UserID, year, leave.Type)
 	if err != nil {
 		tx.Rollback()
@@ -292,11 +320,10 @@ func RejectLeave(c *gin.Context) {
 		return
 	}
 
-	if err := tx.Model(&leave).
-		Updates(map[string]interface{}{
-			"status":      "rejected",
-			"approved_by": approverID,
-		}).Error; err != nil {
+	if err := tx.Model(&leave).Updates(map[string]interface{}{
+		"status":      "rejected",
+		"approved_by": approverID,
+	}).Error; err != nil {
 
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update leave"})
@@ -416,4 +443,70 @@ func GetMyLeaveBalance(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": result})
+}
+
+func WithdrawLeave(c *gin.Context) {
+	userID := c.GetUint("userID")
+	if userID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing user id"})
+		return
+	}
+
+	id := c.Param("id")
+
+	tx := config.DB.Begin()
+
+	var leave models.Leave
+	if err := tx.
+		Where("id = ? AND user_id = ?", id, userID).
+		First(&leave).Error; err != nil {
+
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "leave not found"})
+		return
+	}
+
+	// ❗ Rule: employees can only withdraw PENDING leaves
+	if strings.ToLower(leave.Status) != "pending" {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "only pending leaves can be withdrawn"})
+		return
+	}
+
+	// restore allocation
+	days := workingDaysBetween(leave.StartDate, leave.EndDate)
+	year := leave.StartDate.Year()
+
+	alloc, err := getOrCreateAllocation(leave.UserID, year, leave.Type)
+	if err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load allocation"})
+		return
+	}
+
+	alloc.Used -= days
+	if alloc.Used < 0 {
+		alloc.Used = 0
+	}
+
+	if err := tx.Save(alloc).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update allocation"})
+		return
+	}
+
+	// mark leave as withdrawn
+	if err := tx.Model(&leave).
+		Updates(map[string]interface{}{
+			"status":      "withdrawn",
+			"approved_by": 0,
+		}).Error; err != nil {
+
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update leave"})
+		return
+	}
+
+	tx.Commit()
+	c.JSON(http.StatusOK, gin.H{"message": "withdrawn"})
 }

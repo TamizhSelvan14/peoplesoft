@@ -39,7 +39,16 @@ export default function Leaves() {
   const [error, setError] = useState('')
 
   const role = localStorage.getItem('role') || ''
-  const canApprove = role === 'manager'
+
+  const isManager = role === 'manager'
+  const isHR = role === 'hr'
+
+  // Managers can approve only in "My Team"; HR can approve always
+  const canApprove = (isManager && view === 'team') || isHR
+  // Any user can withdraw their own pending leaves in "My Leaves"
+  const canWithdraw = view === 'my'
+  // Show Action column only if there is any possible action
+  const showActionColumn = canApprove || canWithdraw
 
   const today = new Date().toISOString().slice(0, 10)
 
@@ -111,6 +120,11 @@ export default function Leaves() {
 
   const reject = async (id) => {
     await client.put(`/api/leaves/${id}/reject`)
+    view === 'team' ? loadTeam() : loadMy()
+  }
+
+  const withdraw = async (id) => {
+    await client.put(`/api/leaves/${id}/withdraw`)
     view === 'team' ? loadTeam() : loadMy()
   }
 
@@ -480,19 +494,23 @@ export default function Leaves() {
                   <th style={{padding: '16px', fontWeight: '600', fontSize: '14px', textAlign: 'left'}}>Reason</th>
                   <th style={{padding: '16px', fontWeight: '600', fontSize: '14px', textAlign: 'left'}}>Status</th>
                   <th style={{padding: '16px', fontWeight: '600', fontSize: '14px', textAlign: 'left'}}>Approved By</th>
-                  <th style={{padding: '16px', fontWeight: '600', fontSize: '14px', textAlign: 'left'}}>Action</th>
+                  {showActionColumn && (
+                    <th style={{padding: '16px', fontWeight: '600', fontSize: '14px', textAlign: 'left'}}>Action</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => {
                   const id = r.id || r.ID
                   const status = (r.status || r.Status || '').toLowerCase()
-                  const canAct = canApprove && status === 'pending'
 
                   const userName =
                     r.user_name || r.UserName || r.user_id || r.UserID
                   const approvedByName =
                     r.approved_by_name || r.ApprovedByName || '-'
+
+                  const canActApprove = canApprove && status === 'pending'
+                  const canActWithdraw = canWithdraw && status === 'pending'
 
                   return (
                     <tr key={id} style={{
@@ -525,8 +543,14 @@ export default function Leaves() {
                       <td style={{padding: '14px', color: '#475569', fontSize: '14px'}}>{r.reason || r.Reason}</td>
                       <td style={{padding: '14px', fontSize: '14px'}}>
                         <span style={{
-                          background: status === 'approved' ? 'rgba(34, 197, 94, 0.1)' : status === 'rejected' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(234, 179, 8, 0.1)',
-                          color: status === 'approved' ? '#16a34a' : status === 'rejected' ? '#dc2626' : '#ca8a04',
+                          background: status === 'approved' ? 'rgba(34, 197, 94, 0.1)' :
+                                     status === 'rejected' ? 'rgba(239, 68, 68, 0.1)' :
+                                     status === 'withdrawn' ? 'rgba(148, 163, 184, 0.15)' :
+                                     'rgba(234, 179, 8, 0.1)',
+                          color: status === 'approved' ? '#16a34a' :
+                                 status === 'rejected' ? '#dc2626' :
+                                 status === 'withdrawn' ? '#64748b' :
+                                 '#ca8a04',
                           padding: '4px 12px',
                           borderRadius: '6px',
                           fontSize: '13px',
@@ -535,71 +559,104 @@ export default function Leaves() {
                         }}>{status}</span>
                       </td>
                       <td style={{padding: '14px', color: '#475569', fontSize: '14px'}}>{approvedByName}</td>
-                      <td style={{padding: '14px'}}>
-                        <div style={{display: 'flex', gap: '8px'}}>
-                          {canAct && (
-                            <>
+
+                      {showActionColumn && (
+                        <td style={{padding: '14px'}}>
+                          <div style={{display: 'flex', gap: '8px'}}>
+                            {canActApprove && (
+                              <>
+                                <button
+                                  style={{
+                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '6px 16px',
+                                    borderRadius: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
+                                  }}
+                                  onClick={() => approve(id)}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.transform = 'translateY(-2px)'
+                                    e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)'
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.transform = 'translateY(0)'
+                                    e.target.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.3)'
+                                  }}
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  style={{
+                                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '6px 16px',
+                                    borderRadius: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)'
+                                  }}
+                                  onClick={() => reject(id)}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.transform = 'translateY(-2px)'
+                                    e.target.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.4)'
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.transform = 'translateY(0)'
+                                    e.target.style.boxShadow = '0 2px 8px rgba(245, 158, 11, 0.3)'
+                                  }}
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+
+                            {canActWithdraw && (
                               <button
                                 style={{
-                                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                  color: 'white',
-                                  border: 'none',
+                                  background: 'transparent',
+                                  color: '#dc2626',
+                                  border: '1px solid rgba(220, 38, 38, 0.6)',
                                   padding: '6px 16px',
                                   borderRadius: '8px',
                                   fontSize: '13px',
                                   fontWeight: '600',
                                   cursor: 'pointer',
                                   transition: 'all 0.3s ease',
-                                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
+                                  boxShadow: '0 2px 6px rgba(220, 38, 38, 0.15)'
                                 }}
-                                onClick={() => approve(id)}
+                                onClick={() => withdraw(id)}
                                 onMouseEnter={(e) => {
+                                  e.target.style.background = 'rgba(248, 113, 113, 0.08)'
                                   e.target.style.transform = 'translateY(-2px)'
-                                  e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)'
+                                  e.target.style.boxShadow = '0 4px 10px rgba(220, 38, 38, 0.25)'
                                 }}
                                 onMouseLeave={(e) => {
+                                  e.target.style.background = 'transparent'
                                   e.target.style.transform = 'translateY(0)'
-                                  e.target.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.3)'
+                                  e.target.style.boxShadow = '0 2px 6px rgba(220, 38, 38, 0.15)'
                                 }}
                               >
-                                Approve
+                                Withdraw
                               </button>
-                              <button
-                                style={{
-                                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                                  color: 'white',
-                                  border: 'none',
-                                  padding: '6px 16px',
-                                  borderRadius: '8px',
-                                  fontSize: '13px',
-                                  fontWeight: '600',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.3s ease',
-                                  boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)'
-                                }}
-                                onClick={() => reject(id)}
-                                onMouseEnter={(e) => {
-                                  e.target.style.transform = 'translateY(-2px)'
-                                  e.target.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.4)'
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.target.style.transform = 'translateY(0)'
-                                  e.target.style.boxShadow = '0 2px 8px rgba(245, 158, 11, 0.3)'
-                                }}
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   )
                 })}
 
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={9} style={{
+                    <td colSpan={showActionColumn ? 9 : 8} style={{
                       textAlign: 'center',
                       padding: '40px',
                       color: '#94a3b8',

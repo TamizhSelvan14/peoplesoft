@@ -36,6 +36,7 @@ func SetupRoutes(r *gin.Engine) {
 		leaves.GET("/balance", controllers.GetMyLeaveBalance)
 		leaves.PUT("/:id/approve", controllers.ApproveLeave)
 		leaves.PUT("/:id/reject", controllers.RejectLeave)
+		leaves.PUT("/:id/withdraw", controllers.WithdrawLeave)
 	}
 
 	// PMS routes
