@@ -5,7 +5,7 @@ import './Dashboard.css';
 export default function Goals() {
   const role = localStorage.getItem('role');
   const [activeTab, setActiveTab] = useState('my-goals');
-  
+
   // Common states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -89,7 +89,7 @@ export default function Goals() {
   const loadPendingApprovals = async () => {
     const { data } = await client.get('/api/pms/pending-approvals');
     setPendingApprovals(data.data || []);
-    
+
     // Initialize review forms
     const ratings = {};
     const comments = {};
@@ -215,415 +215,424 @@ export default function Goals() {
 
   const getStatusBadge = (status) => {
     const statusMap = {
-      'draft': { color: 'gray', text: 'Draft' },
-      'hr_assigned': { color: 'blue', text: 'Assigned by HR' },
-      'manager_assigned': { color: 'blue', text: 'Assigned by Manager' },
-      'manager_accepted': { color: 'green', text: 'Accepted' },
-      'employee_accepted': { color: 'green', text: 'Accepted' },
-      'manager_submitted': { color: 'orange', text: 'Submitted to HR' },
-      'employee_submitted': { color: 'orange', text: 'Submitted to Manager' },
-      'manager_approved': { color: 'purple', text: 'Manager Approved' },
-      'hr_approved': { color: 'darkgreen', text: 'HR Approved' }
+      'draft': 'status-neutral',
+      'hr_assigned': 'status-neutral',
+      'manager_assigned': 'status-neutral',
+      'manager_accepted': 'status-success',
+      'employee_accepted': 'status-success',
+      'manager_submitted': 'status-warning',
+      'employee_submitted': 'status-warning',
+      'manager_approved': 'status-success',
+      'hr_approved': 'status-success'
     };
-    const s = statusMap[status] || { color: 'gray', text: status };
-    return <span style={{ 
-      backgroundColor: s.color, 
-      color: 'white', 
-      padding: '4px 8px', 
-      borderRadius: '4px',
-      fontSize: '12px'
-    }}>{s.text}</span>;
+    const cssClass = statusMap[status] || 'status-neutral';
+    const text = status ? status.replace(/_/g, ' ') : 'Unknown';
+    return <span className={`status-badge ${cssClass}`}>{text}</span>;
   };
 
   return (
-    <div className="page-container">
-      <h1 className="page-title">🎯 Goals Management</h1>
+    <div className="dashboard-container">
+      <div style={{ width: '100%' }}>
+        {/* Header */}
+        <div className="glass-panel glass-header">
+          <h1 className="glass-title">🎯 Goals Management</h1>
 
-      {/* Role-based info banner */}
-      <div className="info-banner info-banner-blue">
-        <strong>{role?.toUpperCase()} View:</strong>{' '}
-        {role === 'hr' && 'Assign goals to managers, review their performance.'}
-        {role === 'manager' && 'Accept goals from HR, assign to your team, review employee work.'}
-        {role === 'employee' && 'Accept goals from manager, track progress, submit for approval.'}
-      </div>
+          {/* Cycle Selector */}
+          <div>
+            <select
+              className="select-styled"
+              value={cycleId}
+              onChange={(e) => setCycleId(e.target.value)}
+              style={{ width: 'auto' }}
+            >
+              <option value="1">Cycle 1 - Q1 2025</option>
+              <option value="2">Cycle 2 - Q2 2025</option>
+              <option value="3">Cycle 3 - Q3 2025</option>
+              <option value="4">Cycle 4 - Q4 2025</option>
+            </select>
+          </div>
+        </div>
 
-      {/* Cycle Selector */}
-      <div style={{ marginBottom: '20px' }}>
-        <label style={{ marginRight: '10px', fontWeight: 'bold' }}>Review Cycle:</label>
-        <select 
-          value={cycleId} 
-          onChange={(e) => setCycleId(e.target.value)}
-          style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-        >
-          <option value="1">Cycle 1 - Q1 2025</option>
-          <option value="2">Cycle 2 - Q2 2025</option>
-          <option value="3">Cycle 3 - Q3 2025</option>
-          <option value="4">Cycle 4 - Q4 2025</option>
-        </select>
-      </div>
+        {/* Role-based info banner */}
+        <div className="info-banner-glass">
+          <strong>{role?.toUpperCase()} View:</strong>{' '}
+          {role === 'hr' && 'Assign goals to managers, review their performance.'}
+          {role === 'manager' && 'Accept goals from HR, assign to your team, review employee work.'}
+          {role === 'employee' && 'Accept goals from manager, track progress, submit for approval.'}
+        </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #e0e0e0' }}>
-        <button 
-          onClick={() => setActiveTab('my-goals')}
-          style={{
-            padding: '10px 20px',
-            background: activeTab === 'my-goals' ? '#4A90E2' : 'transparent',
-            color: activeTab === 'my-goals' ? 'white' : '#666',
-            border: 'none',
-            borderBottom: activeTab === 'my-goals' ? '3px solid #4A90E2' : 'none',
-            cursor: 'pointer',
-            fontWeight: 'bold'
-          }}
-        >
-          My Goals
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('assigned')}
-          style={{
-            padding: '10px 20px',
-            background: activeTab === 'assigned' ? '#4A90E2' : 'transparent',
-            color: activeTab === 'assigned' ? 'white' : '#666',
-            border: 'none',
-            borderBottom: activeTab === 'assigned' ? '3px solid #4A90E2' : 'none',
-            cursor: 'pointer',
-            fontWeight: 'bold'
-          }}
-        >
-          Assigned to Me
-        </button>
-
-        {(['manager', 'hr'].includes(role)) && (
-          <button 
-            onClick={() => setActiveTab('assign')}
-            style={{
-              padding: '10px 20px',
-              background: activeTab === 'assign' ? '#4A90E2' : 'transparent',
-              color: activeTab === 'assign' ? 'white' : '#666',
-              border: 'none',
-              borderBottom: activeTab === 'assign' ? '3px solid #4A90E2' : 'none',
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}
+        {/* Tabs */}
+        <div className="tabs-container">
+          <button
+            onClick={() => setActiveTab('my-goals')}
+            className={`tab-btn ${activeTab === 'my-goals' ? 'active' : ''}`}
           >
-            Assign Goals
+            My Goals
           </button>
-        )}
 
-        {(['manager', 'hr'].includes(role)) && (
-          <button 
-            onClick={() => setActiveTab('approvals')}
-            style={{
-              padding: '10px 20px',
-              background: activeTab === 'approvals' ? '#4A90E2' : 'transparent',
-              color: activeTab === 'approvals' ? 'white' : '#666',
-              border: 'none',
-              borderBottom: activeTab === 'approvals' ? '3px solid #4A90E2' : 'none',
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}
+          <button
+            onClick={() => setActiveTab('assigned')}
+            className={`tab-btn ${activeTab === 'assigned' ? 'active' : ''}`}
           >
-            Pending Approvals
+            Assigned to Me
           </button>
-        )}
-      </div>
 
-      {error && <div className="info-banner info-banner-error">{error}</div>}
-      {loading && <p>Loading...</p>}
+          {(['manager', 'hr'].includes(role)) && (
+            <button
+              onClick={() => setActiveTab('assign')}
+              className={`tab-btn ${activeTab === 'assign' ? 'active' : ''}`}
+            >
+              Assign Goals
+            </button>
+          )}
 
-      {/* TAB: My Goals */}
-      {activeTab === 'my-goals' && (
-        <div className="card">
-          <h2>My Self-Created Goals</h2>
-          <form onSubmit={createGoal} style={{ marginBottom: '20px' }}>
-            <div style={{ display: 'grid', gap: '10px' }}>
-              <input
-                type="text"
-                placeholder="Goal Title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}
-              />
-              <textarea
-                placeholder="Description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}
-              />
-              <select
-                value={timeline}
-                onChange={(e) => setTimeline(e.target.value)}
-                style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}
-              >
-                <option value="quarterly">Quarterly</option>
-                <option value="half-yearly">Half-yearly</option>
-                <option value="annual">Annual</option>
-              </select>
-              <button type="submit" className="btn-primary">Create Goal</button>
+          {(['manager', 'hr'].includes(role)) && (
+            <button
+              onClick={() => setActiveTab('approvals')}
+              className={`tab-btn ${activeTab === 'approvals' ? 'active' : ''}`}
+            >
+              Pending Approvals
+            </button>
+          )}
+        </div>
+
+        {error && <div className="info-banner-glass" style={{ color: '#dc2626', background: 'rgba(239, 68, 68, 0.1)' }}>{error}</div>}
+        {loading && <p style={{ textAlign: 'center', color: '#666' }}>Loading...</p>}
+
+        {/* TAB: My Goals */}
+        {activeTab === 'my-goals' && (
+          <div className="glass-panel">
+            <h2 style={{ fontSize: '18px', marginBottom: '16px', color: '#1e293b' }}>My Self-Created Goals</h2>
+            <form onSubmit={createGoal} style={{ marginBottom: '20px' }}>
+              <div className="row g-3">
+                <div className="col-md-4">
+                  <input
+                    type="text"
+                    className="input-styled"
+                    placeholder="Goal Title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="col-md-4">
+                  <input
+                    type="text"
+                    className="input-styled"
+                    placeholder="Description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+                <div className="col-md-2">
+                  <select
+                    className="select-styled"
+                    value={timeline}
+                    onChange={(e) => setTimeline(e.target.value)}
+                  >
+                    <option value="quarterly">Quarterly</option>
+                    <option value="half-yearly">Half-yearly</option>
+                    <option value="annual">Annual</option>
+                  </select>
+                </div>
+                <div className="col-md-2">
+                  <button type="submit" className="btn-gradient" style={{ width: '100%' }}>Create</button>
+                </div>
+              </div>
+            </form>
+
+            <div className="table-container">
+              <table className="table-styled">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Timeline</th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {myGoals.map(g => {
+                    const id = g.ID || g.id;
+                    return (
+                      <tr key={id}>
+                        <td style={{ fontWeight: '500' }}>{g.Title || g.title}</td>
+                        <td>{g.Timeline || g.timeline}</td>
+                        <td>{getStatusBadge(g.Status || g.status)}</td>
+                        <td>
+                          <input
+                            type="number"
+                            className="input-styled"
+                            min="0"
+                            max="100"
+                            defaultValue={g.Progress || g.progress || 0}
+                            onBlur={(e) => updateProgress(id, e.target.value)}
+                            style={{ width: '80px', padding: '6px' }}
+                          />%
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {myGoals.length === 0 && (
+                    <tr><td colSpan={4} style={{ textAlign: 'center', padding: '30px', color: '#999' }}>No goals yet</td></tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          </form>
+          </div>
+        )}
 
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Timeline</th>
-                <th>Status</th>
-                <th>Progress</th>
-              </tr>
-            </thead>
-            <tbody>
-              {myGoals.map(g => {
-                const id = g.ID || g.id;
-                return (
-                  <tr key={id}>
-                    <td>{g.Title || g.title}</td>
-                    <td>{g.Timeline || g.timeline}</td>
-                    <td>{getStatusBadge(g.Status || g.status)}</td>
-                    <td>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        defaultValue={g.Progress || g.progress || 0}
-                        onBlur={(e) => updateProgress(id, e.target.value)}
-                        style={{ width: '80px', padding: '5px' }}
-                      />%
-                    </td>
+        {/* TAB: Assigned to Me */}
+        {activeTab === 'assigned' && (
+          <div className="glass-panel">
+            <h2 style={{ fontSize: '18px', marginBottom: '16px', color: '#1e293b' }}>Goals Assigned to Me</h2>
+            <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
+              {role === 'manager' && 'Goals assigned by HR. Accept, work on them, and submit for approval.'}
+              {role === 'employee' && 'Goals assigned by your manager. Accept, complete, and submit.'}
+            </p>
+
+            <div className="table-container">
+              <table className="table-styled">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Timeline</th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                    <th>Actions</th>
                   </tr>
-                );
-              })}
-              {myGoals.length === 0 && (
-                <tr><td colSpan={4} style={{ textAlign: 'center', color: '#999' }}>No goals yet</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+                </thead>
+                <tbody>
+                  {assignedGoals.map(g => {
+                    const id = g.ID || g.id;
+                    const status = g.Status || g.status;
+                    const canAccept = (role === 'manager' && status === 'hr_assigned') ||
+                      (role === 'employee' && status === 'manager_assigned');
+                    const canSubmit = status === 'accepted' || status === 'in_progress' || status === 'manager_accepted' || status === 'employee_accepted';
 
-      {/* TAB: Assigned to Me */}
-      {activeTab === 'assigned' && (
-        <div className="card">
-          <h2>Goals Assigned to Me</h2>
-          <p style={{ color: '#666', marginBottom: '20px' }}>
-            {role === 'manager' && 'Goals assigned by HR. Accept, work on them, and submit for approval.'}
-            {role === 'employee' && 'Goals assigned by your manager. Accept, complete, and submit.'}
-          </p>
-
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Timeline</th>
-                <th>Status</th>
-                <th>Progress</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {assignedGoals.map(g => {
-  const id = g.ID || g.id;
-  const status = g.Status || g.status;
-  const canAccept = (role === 'manager' && status === 'hr_assigned') || 
-                   (role === 'employee' && status === 'manager_assigned');
-  const canSubmit = status === 'accepted' || status === 'in_progress'; // ✅ FIX THIS LINE
-
-  return (
-    <tr key={id}>
-      <td>{g.Title || g.title}</td>
-      <td>{g.Timeline || g.timeline}</td>
-      <td>{getStatusBadge(status)}</td>
-      <td>{g.Progress || g.progress || 0}%</td>
-      <td>
-        {canAccept && (
-          <button onClick={() => acceptGoal(id)} className="btn-primary">Accept</button>
+                    return (
+                      <tr key={id}>
+                        <td style={{ fontWeight: '500' }}>{g.Title || g.title}</td>
+                        <td>{g.Timeline || g.timeline}</td>
+                        <td>{getStatusBadge(status)}</td>
+                        <td>{g.Progress || g.progress || 0}%</td>
+                        <td>
+                          {canAccept && (
+                            <button onClick={() => acceptGoal(id)} className="btn-gradient" style={{ padding: '6px 12px', fontSize: '12px' }}>Accept</button>
+                          )}
+                          {canSubmit && (
+                            <button onClick={() => submitGoal(id)} className="btn-gradient" style={{ marginLeft: '5px', padding: '6px 12px', fontSize: '12px' }}>
+                              Submit
+                            </button>
+                          )}
+                          {(status === 'manager_submitted' || status === 'employee_submitted') && (
+                            <span style={{ color: '#999', fontSize: '13px' }}>Waiting approval...</span>
+                          )}
+                          {(status === 'manager_approved' || status === 'hr_approved') && (
+                            <span style={{ color: '#16a34a', fontWeight: '600', fontSize: '13px' }}>✓ Approved</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {assignedGoals.length === 0 && (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: '#999' }}>No assigned goals</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
-        {canSubmit && (
-          <button onClick={() => submitGoal(id)} className="btn-primary" style={{ marginLeft: '5px' }}>
-            Submit for Approval
-          </button>
+
+        {/* TAB: Assign Goals */}
+        {activeTab === 'assign' && role === 'manager' && (
+          <div className="glass-panel">
+            <h2 style={{ fontSize: '18px', marginBottom: '16px', color: '#1e293b' }}>Assign Goals to Team Members</h2>
+            <form onSubmit={assignToEmployee}>
+              <div className="row g-3">
+                <div className="col-md-3">
+                  <select
+                    className="select-styled"
+                    value={selectedEmployee}
+                    onChange={(e) => setSelectedEmployee(e.target.value)}
+                    required
+                  >
+                    <option value="">Select Team Member</option>
+                    {teamMembers.map(m => (
+                      <option key={m.id || m.ID} value={m.user_id || m.UserID}>
+                        {m.name || m.Name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-md-3">
+                  <input
+                    type="text"
+                    className="input-styled"
+                    placeholder="Goal Title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="col-md-3">
+                  <input
+                    type="text"
+                    className="input-styled"
+                    placeholder="Description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+                <div className="col-md-2">
+                  <select
+                    className="select-styled"
+                    value={timeline}
+                    onChange={(e) => setTimeline(e.target.value)}
+                  >
+                    <option value="quarterly">Quarterly</option>
+                    <option value="half-yearly">Half-yearly</option>
+                    <option value="annual">Annual</option>
+                  </select>
+                </div>
+                <div className="col-md-1">
+                  <button type="submit" className="btn-gradient" style={{ width: '100%' }}>Assign</button>
+                </div>
+              </div>
+            </form>
+          </div>
         )}
-        {status === 'submitted' && (
-          <span style={{ color: '#999' }}>Waiting for approval...</span>
+
+        {activeTab === 'assign' && role === 'hr' && (
+          <div className="glass-panel">
+            <h2 style={{ fontSize: '18px', marginBottom: '16px', color: '#1e293b' }}>Assign Goals to Managers</h2>
+            <form onSubmit={assignToManager}>
+              <div className="row g-3">
+                <div className="col-md-3">
+                  <select
+                    className="select-styled"
+                    value={selectedManager}
+                    onChange={(e) => setSelectedManager(e.target.value)}
+                    required
+                  >
+                    <option value="">Select Manager</option>
+                    {managers.map(m => (
+                      <option key={m.id || m.ID} value={m.user_id || m.UserID}>
+                        {m.name || m.Name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-md-3">
+                  <input
+                    type="text"
+                    className="input-styled"
+                    placeholder="Goal Title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="col-md-3">
+                  <input
+                    type="text"
+                    className="input-styled"
+                    placeholder="Description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+                <div className="col-md-2">
+                  <select
+                    className="select-styled"
+                    value={timeline}
+                    onChange={(e) => setTimeline(e.target.value)}
+                  >
+                    <option value="quarterly">Quarterly</option>
+                    <option value="half-yearly">Half-yearly</option>
+                    <option value="annual">Annual</option>
+                  </select>
+                </div>
+                <div className="col-md-1">
+                  <button type="submit" className="btn-gradient" style={{ width: '100%' }}>Assign</button>
+                </div>
+              </div>
+            </form>
+          </div>
         )}
-        {status === 'approved' && (
-          <span style={{ color: 'green' }}>✓ Approved</span>
-        )}
-      </td>
-    </tr>
-  );
-})}
-              {assignedGoals.length === 0 && (
-                <tr><td colSpan={5} style={{ textAlign: 'center', color: '#999' }}>No assigned goals</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
 
-      {/* TAB: Assign Goals */}
-      {activeTab === 'assign' && role === 'manager' && (
-        <div className="card">
-          <h2>Assign Goals to Team Members</h2>
-          <form onSubmit={assignToEmployee} style={{ display: 'grid', gap: '10px' }}>
-            <select
-              value={selectedEmployee}
-              onChange={(e) => setSelectedEmployee(e.target.value)}
-              required
-              style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}
-            >
-              <option value="">Select Team Member</option>
-              {teamMembers.map(m => (
-                <option key={m.id || m.ID} value={m.user_id || m.UserID}>
-                  {m.name || m.Name} - {m.designation || m.Designation}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              placeholder="Goal Title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}
-            />
-            <textarea
-              placeholder="Description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}
-            />
-            <select
-              value={timeline}
-              onChange={(e) => setTimeline(e.target.value)}
-              style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}
-            >
-              <option value="quarterly">Quarterly</option>
-              <option value="half-yearly">Half-yearly</option>
-              <option value="annual">Annual</option>
-            </select>
-            <button type="submit" className="btn-primary">Assign to Employee</button>
-          </form>
-        </div>
-      )}
+        {/* TAB: Pending Approvals */}
+        {activeTab === 'approvals' && (
+          <div className="glass-panel">
+            <h2 style={{ fontSize: '18px', marginBottom: '16px', color: '#1e293b' }}>Pending Approvals</h2>
+            <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
+              {role === 'manager' && 'Review and approve employee goal submissions.'}
+              {role === 'hr' && 'Review and approve manager goal submissions.'}
+            </p>
 
-      {activeTab === 'assign' && role === 'hr' && (
-        <div className="card">
-          <h2>Assign Goals to Managers</h2>
-          <form onSubmit={assignToManager} style={{ display: 'grid', gap: '10px' }}>
-            <select
-              value={selectedManager}
-              onChange={(e) => setSelectedManager(e.target.value)}
-              required
-              style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}
-            >
-              <option value="">Select Manager</option>
-              {managers.map(m => (
-                <option key={m.id || m.ID} value={m.user_id || m.UserID}>
-                  {m.name || m.Name} - {m.designation || m.Designation}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              placeholder="Goal Title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}
-            />
-            <textarea
-              placeholder="Description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}
-            />
-            <select
-              value={timeline}
-              onChange={(e) => setTimeline(e.target.value)}
-              style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '4px' }}
-            >
-              <option value="quarterly">Quarterly</option>
-              <option value="half-yearly">Half-yearly</option>
-              <option value="annual">Annual</option>
-            </select>
-            <button type="submit" className="btn-primary">Assign to Manager</button>
-          </form>
-        </div>
-      )}
-
-      {/* TAB: Pending Approvals */}
-      {activeTab === 'approvals' && (
-        <div className="card">
-          <h2>Pending Approvals</h2>
-          <p style={{ color: '#666', marginBottom: '20px' }}>
-            {role === 'manager' && 'Review and approve employee goal submissions.'}
-            {role === 'hr' && 'Review and approve manager goal submissions.'}
-          </p>
-
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Title</th>
-                <th>Status</th>
-                <th>Progress</th>
-                <th>Rating (1-5)</th>
-                <th>Comments</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendingApprovals.map(g => {
-                const id = g.ID || g.id;
-                return (
-                  <tr key={id}>
-                    <td>
-                      {g.employee_name || g.EmployeeName}<br/>
-                      <small style={{ color: '#999' }}>{g.employee_email || g.EmployeeEmail}</small>
-                    </td>
-                    <td>{g.Title || g.title}</td>
-                    <td>{getStatusBadge(g.Status || g.status)}</td>
-                    <td>{g.Progress || g.progress || 0}%</td>
-                    <td>
-                      <input
-                        type="number"
-                        min="1"
-                        max="5"
-                        value={reviewRating[id] || 4}
-                        onChange={(e) => setReviewRating({ ...reviewRating, [id]: Number(e.target.value) })}
-                        style={{ width: '60px', padding: '5px' }}
-                      />
-                    </td>
-                    <td>
-                      <textarea
-                        rows={2}
-                        value={reviewComments[id] || ''}
-                        onChange={(e) => setReviewComments({ ...reviewComments, [id]: e.target.value })}
-                        placeholder="Review comments..."
-                        style={{ width: '200px', padding: '5px' }}
-                      />
-                    </td>
-                    <td>
-                      <button onClick={() => approveGoal(id)} className="btn-primary">
-                        Approve & Review
-                      </button>
-                    </td>
+            <div className="table-container">
+              <table className="table-styled">
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                    <th>Rating (1-5)</th>
+                    <th>Comments</th>
+                    <th>Action</th>
                   </tr>
-                );
-              })}
-              {pendingApprovals.length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign: 'center', color: '#999' }}>No pending approvals</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+                </thead>
+                <tbody>
+                  {pendingApprovals.map(g => {
+                    const id = g.ID || g.id;
+                    return (
+                      <tr key={id}>
+                        <td>
+                          <div style={{ fontWeight: '500' }}>{g.employee_name || g.EmployeeName}</div>
+                          <small style={{ color: '#64748b' }}>{g.employee_email || g.EmployeeEmail}</small>
+                        </td>
+                        <td>{g.Title || g.title}</td>
+                        <td>{getStatusBadge(g.Status || g.status)}</td>
+                        <td>{g.Progress || g.progress || 0}%</td>
+                        <td>
+                          <input
+                            type="number"
+                            className="input-styled"
+                            min="1"
+                            max="5"
+                            value={reviewRating[id] || 4}
+                            onChange={(e) => setReviewRating({ ...reviewRating, [id]: Number(e.target.value) })}
+                            style={{ width: '60px', padding: '6px' }}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            className="input-styled"
+                            value={reviewComments[id] || ''}
+                            onChange={(e) => setReviewComments({ ...reviewComments, [id]: e.target.value })}
+                            placeholder="Comments..."
+                            style={{ width: '100%' }}
+                          />
+                        </td>
+                        <td>
+                          <button onClick={() => approveGoal(id)} className="btn-gradient" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                            Approve
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {pendingApprovals.length === 0 && (
+                    <tr><td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: '#999' }}>No pending approvals</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
