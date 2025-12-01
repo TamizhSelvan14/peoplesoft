@@ -334,10 +334,11 @@ Access the chatbot from the floating button on any page.
 This project is part of an academic assignment for SJSU.
 
 ## 👥 Team
-Jaya Vyas 
-Prachi Gupta 
-Soham Raj Jain 
-Tamizh Selvan Manivannan 
+Jaya Vyas,
+Prachi Gupta, 
+Tamizh Selvan Manivannan,
+Soham Raj Jain
+
 
 
 
