@@ -38,16 +38,9 @@
     box-sizing: border-box;
 }
 
-body {
-    margin: 0;
-    padding: 0;
-    background:
-        linear-gradient(135deg, rgba(41, 128, 185, 0.85) 0%, rgba(109, 213, 250, 0.85) 50%, rgba(142, 158, 171, 0.85) 100%),
-        url('/images/hr-background.jpg');
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-    background-repeat: no-repeat;
+html, body {
+    overflow-x: hidden;
+    width: 100%;
 }
 
 body {
@@ -198,8 +191,10 @@ body {
 .sidebar-holiday-item {
     display: flex;
     gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    background: rgba(255,255,255,0.05);
 }
 
 .holiday-date-badge {
@@ -242,7 +237,7 @@ body {
 }
 
 .no-holidays {
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255,255,255,0.5);
     font-size: 13px;
     text-align: center;
     padding: 16px 0;
@@ -318,26 +313,14 @@ body {
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 18px;
-    box-shadow: 0 8px 32px rgba(102, 126, 234, 0.5);
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    overflow: hidden;
+    justify-content: center;
+    transition: all 0.2s;
     position: relative;
     flex-shrink: 0;
 }
 
-@keyframes gradientShift {
-    0% {
-        background-position: 0% 50%;
-    }
-
-    50% {
-        background-position: 100% 50%;
-    }
-
-    100% {
-        background-position: 0% 50%;
-    }
+.header-btn:hover {
+    background: var(--bg-main);
 }
 
 .notification-dot {
@@ -351,38 +334,28 @@ body {
     border: 2px solid var(--bg-card);
 }
 
-@keyframes sparkle {
-    0% {
-        transform: translateX(-100%) translateY(-100%) rotate(45deg);
-    }
-
-    100% {
-        transform: translateX(100%) translateY(100%) rotate(45deg);
-    }
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px 6px 6px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
 }
 
 .user-profile:hover {
     background: var(--bg-main);
 }
 
-@keyframes megaphonePulse {
-
-    0%,
-    100% {
-        transform: scale(1) rotate(0deg);
-    }
-
-    25% {
-        transform: scale(1.15) rotate(-5deg);
-    }
-
-    50% {
-        transform: scale(1) rotate(0deg);
-    }
-
-    75% {
-        transform: scale(1.15) rotate(5deg);
-    }
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
 }
 
 .user-info {
@@ -475,16 +448,26 @@ body {
     animation-play-state: paused;
 }
 
-@keyframes textGlow {
-
-    0%,
+@keyframes scrollNews {
+    0% {
+        transform: translateX(0);
+    }
     100% {
-        text-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
+        transform: translateX(-50%);
     }
+}
 
-    50% {
-        text-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255, 255, 255, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
-    }
+.news-item-inline {
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    padding-right: 8px;
+}
+
+.news-separator {
+    color: var(--accent);
+    padding: 0 16px;
+    font-weight: bold;
 }
 
 /* ============================= */
@@ -515,17 +498,19 @@ body {
     height: 400px;
     background: rgba(255,255,255,0.05);
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.4);
-    cursor: pointer;
-    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
 }
 
-.news-indicator .dot:hover {
-    background: rgba(255, 255, 255, 0.7);
-    transform: scale(1.3);
-    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.4);
+.welcome-section::after {
+    content: '';
+    position: absolute;
+    bottom: -60%;
+    right: 20%;
+    width: 300px;
+    height: 300px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 50%;
+    pointer-events: none;
 }
 
 .welcome-text {
@@ -534,16 +519,10 @@ body {
     min-width: 280px;
 }
 
-@keyframes dotPulse {
-
-    0%,
-    100% {
-        transform: scale(1);
-    }
-
-    50% {
-        transform: scale(1.1);
-    }
+.welcome-text h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
 }
 
 .welcome-text p {
@@ -551,24 +530,13 @@ body {
     font-size: 15px;
 }
 
-@keyframes floatParticle {
-    0% {
-        opacity: 0;
-        transform: translate(10%, 50%) scale(0);
-    }
-
-    20% {
-        opacity: 1;
-    }
-
-    80% {
-        opacity: 1;
-    }
-
-    100% {
-        opacity: 0;
-        transform: translate(90%, -50%) scale(1.5);
-    }
+.welcome-date {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    font-size: 14px;
+    opacity: 0.8;
 }
 
 .welcome-profile {
@@ -1042,11 +1010,29 @@ body {
         opacity: 0;
         transform: translateY(20px);
     }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.stat-card {
+    animation: fadeInUp 0.5s ease forwards;
+}
+
+.stat-card:nth-child(1) { animation-delay: 0.1s; }
+.stat-card:nth-child(2) { animation-delay: 0.2s; }
+.stat-card:nth-child(3) { animation-delay: 0.3s; }
+.stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+.card {
+    animation: fadeInUp 0.5s ease forwards;
+    animation-delay: 0.3s;
 }
 
 /* ============================= */
 /* NEW GLASSMORPHIC UI SYSTEM    */
-/* (Extracted from Employees.jsx)*/
+/* (from the “other pages working” CSS) */
 /* ============================= */
 
 /* Main Container */
