@@ -7,7 +7,6 @@ import Employees from './pages/Employees'
 import Leaves from './pages/Leaves'
 import Performance from './pages/Performance'
 import Goals from './pages/Goals'
-import ManagerReview from './pages/ManagerReview'
 import Onboarding from './pages/Onboarding'
 import AuthCallback from './pages/AuthCallback'
 import Unauthorized from './pages/Unauthorized'
@@ -212,30 +211,6 @@ export default function App() {
                           }}>
                               Performance
                           </Link>
-
-                          {/* Manager and HR only */}
-                          {(['hr', 'manager'].includes(userRole)) && (
-                              <Link to="/manager/review" style={{
-                                  color: location.pathname === '/manager/review' ? '#ffffff' : '#cbd5e1',
-                                  textDecoration: 'none',
-                                  fontSize: '15px',
-                                  fontWeight: '500',
-                                  padding: '24px 0',
-                                  borderBottom: location.pathname === '/manager/review' ? '3px solid #667eea' : '3px solid transparent',
-                                  transition: 'all 0.3s ease',
-                                  letterSpacing: '0.3px'
-                              }}
-                              onMouseEnter={e => {
-                                  e.target.style.color = '#ffffff'
-                              }}
-                              onMouseLeave={e => {
-                                  if (location.pathname !== '/manager/review') {
-                                      e.target.style.color = '#cbd5e1'
-                                  }
-                              }}>
-                                  Manager Review
-                              </Link>
-                          )}
                       </div>
 
                       <button
@@ -354,16 +329,6 @@ export default function App() {
                       <PrivateRoute>
                         <Employees />
                       </PrivateRoute>
-                    }
-                  />
-                  
-                  {/* Manager Review - Keep as separate page */}
-                  <Route
-                    path="/manager/review"
-                    element={
-                      <RoleBasedRoute allowedRoles={["manager", "hr"]}>
-                        <ManagerReview />
-                      </RoleBasedRoute>
                     }
                   />
               </Routes>

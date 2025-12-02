@@ -48,8 +48,10 @@ func Auth0Login(c *gin.Context) {
 	appToken, _ := utils.GenerateToken(user.Email, user.Role)
 
 	c.JSON(http.StatusOK, gin.H{
-		"token": appToken,
-		"role":  user.Role,
-		"email": user.Email,
+		"token":  appToken,
+		"role":   user.Role,
+		"email":  user.Email,
+		"userID": user.ID,
+		"name":   user.Name,
 	})
 }
