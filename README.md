@@ -135,7 +135,7 @@ A comprehensive full-stack HR Management System with Performance Management, Goa
    npm run dev
    ```
 
-   Frontend will start at: `http://localhost:5173`
+   Frontend will start at: `"https://d1coettjn7fksr.cloudfront.net/"`
 
 ### Docker Setup (Alternative)
 
