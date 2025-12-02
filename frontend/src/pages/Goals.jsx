@@ -11,7 +11,7 @@ export default function Goals() {
   const [error, setError] = useState('');
   const [cycleId, setCycleId] = useState('1');
 
-  // My Goals (self-created)
+  // My Goals (accepted assigned goals)
   const [myGoals, setMyGoals] = useState([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -61,10 +61,21 @@ export default function Goals() {
     }
   };
 
-  // Load my self-created goals
+  // Load accepted assigned goals (not yet submitted)
   const loadMyGoals = async () => {
-    const { data } = await client.get(`/api/pms/my-goals?cycle_id=${cycleId}`);
-    setMyGoals(data.data || []);
+    // Fetch assigned goals
+    const { data: assignedData } = await client.get(`/api/pms/my-assigned-goals?cycle_id=${cycleId}`);
+    const assignedGoals = assignedData.data || [];
+
+    // Filter to show only accepted goals (not yet submitted)
+    const acceptedNotSubmitted = assignedGoals.filter(g => {
+      const status = (g.Status || g.status || '').toLowerCase();
+      // Include: accepted, employee_accepted, manager_accepted
+      // Exclude: submitted, approved, hr_assigned, manager_assigned
+      return status.includes('accepted') && !status.includes('submitted') && !status.includes('approved') && !status.includes('assigned');
+    });
+
+    setMyGoals(acceptedNotSubmitted);
   };
 
   // Load goals assigned to me
@@ -101,24 +112,6 @@ export default function Goals() {
     setReviewComments(comments);
   };
 
-  // Create self goal
-  const createGoal = async (e) => {
-    e.preventDefault();
-    setError('');
-    try {
-      await client.post('/api/pms/goals', {
-        cycle_id: Number(cycleId),
-        title,
-        description,
-        timeline
-      });
-      setTitle('');
-      setDescription('');
-      loadMyGoals();
-    } catch (err) {
-      setError(err?.response?.data?.error || 'Create failed');
-    }
-  };
 
   // Update goal progress
   const updateProgress = async (goalId, progress) => {
@@ -136,6 +129,7 @@ export default function Goals() {
       await client.post(`/api/pms/goals/${goalId}/accept`);
       alert('Goal accepted! You can now work on it.');
       loadAssignedGoals();
+      loadMyGoals(); // Also reload My Goals as accepted goals appear there
     } catch (err) {
       alert(err?.response?.data?.error || 'Accept failed');
     }
@@ -151,6 +145,7 @@ export default function Goals() {
       });
       alert('Goal submitted for approval!');
       loadAssignedGoals();
+      loadMyGoals(); // Also reload My Goals as submitted goals are removed from there
     } catch (err) {
       alert(err?.response?.data?.error || 'Submit failed');
     }
@@ -302,44 +297,10 @@ export default function Goals() {
         {/* TAB: My Goals */}
         {activeTab === 'my-goals' && (
           <div className="glass-panel">
-            <h2 style={{ fontSize: '18px', marginBottom: '16px', color: '#1e293b' }}>My Self-Created Goals</h2>
-            <form onSubmit={createGoal} style={{ marginBottom: '20px' }}>
-              <div className="row g-3">
-                <div className="col-md-4">
-                  <input
-                    type="text"
-                    className="input-styled"
-                    placeholder="Goal Title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="col-md-4">
-                  <input
-                    type="text"
-                    className="input-styled"
-                    placeholder="Description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                </div>
-                <div className="col-md-2">
-                  <select
-                    className="select-styled"
-                    value={timeline}
-                    onChange={(e) => setTimeline(e.target.value)}
-                  >
-                    <option value="quarterly">Quarterly</option>
-                    <option value="half-yearly">Half-yearly</option>
-                    <option value="annual">Annual</option>
-                  </select>
-                </div>
-                <div className="col-md-2">
-                  <button type="submit" className="btn-gradient" style={{ width: '100%' }}>Create</button>
-                </div>
-              </div>
-            </form>
+            <h2 style={{ fontSize: '18px', marginBottom: '16px', color: '#1e293b' }}>My Active Goals</h2>
+            <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
+              Goals you have accepted and are currently working on. Update progress and submit when complete.
+            </p>
 
             <div className="table-container">
               <table className="table-styled">
@@ -349,11 +310,15 @@ export default function Goals() {
                     <th>Timeline</th>
                     <th>Status</th>
                     <th>Progress</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {myGoals.map(g => {
                     const id = g.ID || g.id;
+                    const progress = g.Progress || g.progress || 0;
+                    const canSubmit = progress === 100;
+
                     return (
                       <tr key={id}>
                         <td style={{ fontWeight: '500' }}>{g.Title || g.title}</td>
@@ -365,16 +330,29 @@ export default function Goals() {
                             className="input-styled"
                             min="0"
                             max="100"
-                            defaultValue={g.Progress || g.progress || 0}
+                            defaultValue={progress}
                             onBlur={(e) => updateProgress(id, e.target.value)}
                             style={{ width: '80px', padding: '6px' }}
                           />%
+                        </td>
+                        <td>
+                          {canSubmit ? (
+                            <button
+                              onClick={() => submitGoal(id)}
+                              className="btn-gradient"
+                              style={{ padding: '6px 12px', fontSize: '12px' }}
+                            >
+                              Submit
+                            </button>
+                          ) : (
+                            <span style={{ color: '#999', fontSize: '13px' }}>Complete to submit</span>
+                          )}
                         </td>
                       </tr>
                     );
                   })}
                   {myGoals.length === 0 && (
-                    <tr><td colSpan={4} style={{ textAlign: 'center', padding: '30px', color: '#999' }}>No goals yet</td></tr>
+                    <tr><td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: '#999' }}>No active goals. Accept goals from "Assigned to Me" tab.</td></tr>
                   )}
                 </tbody>
               </table>

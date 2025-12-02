@@ -93,7 +93,8 @@ export default function AuthCallback() {
                 localStorage.setItem("token", response.data.token);
                 localStorage.setItem("role", response.data.role);
                 localStorage.setItem("email", response.data.email);
-                localStorage.setItem("name", user.name || user.email);
+                localStorage.setItem("userID", response.data.userID);
+                localStorage.setItem("name", response.data.name || user.name || user.email);
 
                 console.log('✅ Stored credentials, navigating to dashboard...');
                 setStatusMessage("Success! Redirecting...");

@@ -30,6 +30,7 @@ func ListEmployees(c *gin.Context) {
 	q := strings.TrimSpace(c.Query("q"))
 	designation := strings.TrimSpace(c.Query("designation"))
 	dept := strings.TrimSpace(c.Query("department_id"))
+	role := strings.TrimSpace(c.Query("role"))
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	size, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
 	if page < 1 {
@@ -57,6 +58,9 @@ func ListEmployees(c *gin.Context) {
 		if did, err := strconv.Atoi(dept); err == nil {
 			db = db.Where("e.department_id = ?", did)
 		}
+	}
+	if role != "" {
+		db = db.Where("u.role = ?", role)
 	}
 
 	var total int64

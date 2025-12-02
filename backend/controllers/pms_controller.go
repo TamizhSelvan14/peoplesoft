@@ -323,7 +323,11 @@ func ApproveGoalAndReview(c *gin.Context) {
 		return
 	}
 
-	// Create performance review record
+	// Create or update performance review record
+	var existingReview models.ManagerReview
+	config.DB.Where("employee_id = ? AND reviewer_id = ? AND cycle_id = ?",
+		goal.UserID, userID, goal.CycleID).First(&existingReview)
+
 	review := models.ManagerReview{
 		EmployeeID: goal.UserID,
 		ReviewerID: userID,
@@ -333,9 +337,20 @@ func ApproveGoalAndReview(c *gin.Context) {
 		Status:     "final",
 		ReviewedAt: time.Now(),
 	}
-	if err := config.DB.Create(&review).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "review creation failed"})
-		return
+
+	if existingReview.ID > 0 {
+		// Update existing review
+		review.ID = existingReview.ID
+		if err := config.DB.Model(&existingReview).Updates(review).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "review update failed"})
+			return
+		}
+	} else {
+		// Create new review
+		if err := config.DB.Create(&review).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "review creation failed"})
+			return
+		}
 	}
 
 	// Update performance record if score provided
@@ -393,12 +408,15 @@ func AllReviews(c *gin.Context) {
 		models.ManagerReview
 		EmployeeName   string `json:"employee_name"`
 		ReviewerName   string `json:"reviewer_name"`
+		JobTitle       string `json:"job_title"`
+		GoalTitle      string `json:"goal_title"`
 	}
 
 	db := config.DB.Table("manager_reviews mr").
-		Select("mr.*, u1.name as employee_name, u2.name as reviewer_name").
+		Select("mr.*, u1.name as employee_name, u2.name as reviewer_name, e.designation as job_title, (SELECT STRING_AGG(g.title, ', ') FROM goals g WHERE g.user_id = mr.employee_id AND g.cycle_id = mr.cycle_id) as goal_title").
 		Joins("JOIN users u1 ON u1.id = mr.employee_id").
 		Joins("JOIN users u2 ON u2.id = mr.reviewer_id").
+		Joins("LEFT JOIN employees e ON e.user_id = mr.employee_id").
 		Order("mr.reviewed_at desc")
 
 	if err := db.Scan(&rows).Error; err != nil {
@@ -545,6 +563,7 @@ func PerformanceReports(c *gin.Context) {
 		GoalsTotal     int     `json:"goals_total"`
 		GoalsCompleted int     `json:"goals_completed"`
 		Status         string  `json:"status"`
+		GoalTitles     string  `json:"goal_titles"`
 	}
 
 	db := config.DB.Table("manager_reviews mr").
@@ -554,27 +573,32 @@ func PerformanceReports(c *gin.Context) {
 			COALESCE(d.name, 'N/A') as department_name,
 			mr.cycle_id,
 			AVG(mr.rating) as avg_rating,
-			COUNT(g.id) as goals_total,
-			SUM(CASE WHEN g.status = 'approved' THEN 1 ELSE 0 END) as goals_completed,
-			MAX(mr.status) as status
+			COALESCE(COUNT(DISTINCT g.id), 0) as goals_total,
+			COALESCE(SUM(CASE WHEN g.status = 'approved' THEN 1 ELSE 0 END), 0) as goals_completed,
+			MAX(mr.status) as status,
+			STRING_AGG(DISTINCT g.title, ', ') as goal_titles
 		`).
 		Joins("JOIN users u ON u.id = mr.employee_id").
 		Joins("LEFT JOIN employees e ON e.user_id = u.id").
 		Joins("LEFT JOIN departments d ON d.id = e.department_id").
 		Joins("LEFT JOIN goals g ON g.user_id = mr.employee_id AND g.cycle_id = mr.cycle_id")
 
-	if role == "manager" {
-		// Get manager's employee ID
+	if role == "employee" {
+		// Employees see only their OWN performance data
+		db = db.Where("mr.employee_id = ?", userID)
+	} else if role == "manager" {
+		// Managers see BOTH their own data AND their team's data
 		var managerEmpID uint
 		config.DB.Table("employees").Select("id").Where("user_id = ?", userID).Scan(&managerEmpID)
-		
-		db = db.Joins("JOIN employees emp ON emp.user_id = mr.employee_id").
-			Where("emp.manager_id = ?", managerEmpID)
-	} else if role == "employee" {
-		db = db.Where("mr.employee_id = ?", userID)
-	}
 
-	db = db.Group("mr.employee_id, u.name, d.name, mr.cycle_id")
+		// Get both: own data (mr.employee_id = userID) OR team data (emp.manager_id = managerEmpID)
+		db = db.Joins("LEFT JOIN employees emp ON emp.user_id = mr.employee_id").
+			Where("mr.employee_id = ? OR emp.manager_id = ?", userID, managerEmpID)
+	}
+	// HR sees all performance data (no filter)
+
+	db = db.Group("mr.employee_id, u.name, d.name, mr.cycle_id").
+		Order("mr.employee_id ASC, mr.cycle_id ASC")
 
 	if err := db.Scan(&reports).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "report failed"})
@@ -585,15 +609,58 @@ func PerformanceReports(c *gin.Context) {
 
 // GET /api/pms/my-reviews
 func MyReviews(c *gin.Context) {
-	_, _, userID := mustUser(c)
+	_, role, userID := mustUser(c)
 
-	var rows []models.ManagerReview
-	if err := config.DB.Where("employee_id = ?", userID).
-		Order("reviewed_at desc").
-		Find(&rows).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "fetch failed"})
-		return
+	type ReviewWithEmployee struct {
+		models.ManagerReview
+		EmployeeName string `json:"employee_name"`
+		JobTitle     string `json:"job_title"`
+		GoalTitle    string `json:"goal_title"`
 	}
+
+	var rows []ReviewWithEmployee
+
+	if role == "employee" {
+		// Employees see only their own reviews
+		if err := config.DB.Table("manager_reviews mr").
+			Select("mr.*, u.name as employee_name, e.designation as job_title, (SELECT STRING_AGG(g.title, ', ') FROM goals g WHERE g.user_id = mr.employee_id AND g.cycle_id = mr.cycle_id) as goal_title").
+			Joins("JOIN users u ON u.id = mr.employee_id").
+			Joins("LEFT JOIN employees e ON e.user_id = mr.employee_id").
+			Where("mr.employee_id = ?", userID).
+			Order("mr.reviewed_at desc").
+			Scan(&rows).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "fetch failed"})
+			return
+		}
+	} else if role == "manager" {
+		// Managers see both their own reviews AND their team's reviews
+		var managerEmpID uint
+		config.DB.Table("employees").Select("id").Where("user_id = ?", userID).Scan(&managerEmpID)
+
+		if err := config.DB.Table("manager_reviews mr").
+			Select("mr.*, u.name as employee_name, e.designation as job_title, (SELECT STRING_AGG(g.title, ', ') FROM goals g WHERE g.user_id = mr.employee_id AND g.cycle_id = mr.cycle_id) as goal_title").
+			Joins("JOIN users u ON u.id = mr.employee_id").
+			Joins("LEFT JOIN employees e ON e.user_id = mr.employee_id").
+			Where("mr.employee_id = ? OR e.manager_id = ?", userID, managerEmpID).
+			Order("mr.reviewed_at desc").
+			Scan(&rows).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "fetch failed"})
+			return
+		}
+	} else {
+		// HR or other roles (for backward compatibility)
+		if err := config.DB.Table("manager_reviews mr").
+			Select("mr.*, u.name as employee_name, e.designation as job_title, (SELECT STRING_AGG(g.title, ', ') FROM goals g WHERE g.user_id = mr.employee_id AND g.cycle_id = mr.cycle_id) as goal_title").
+			Joins("JOIN users u ON u.id = mr.employee_id").
+			Joins("LEFT JOIN employees e ON e.user_id = mr.employee_id").
+			Where("mr.employee_id = ?", userID).
+			Order("mr.reviewed_at desc").
+			Scan(&rows).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "fetch failed"})
+			return
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{"data": rows})
 }
 

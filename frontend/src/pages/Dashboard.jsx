@@ -16,55 +16,34 @@ export default function Dashboard() {
     const email = localStorage.getItem("email");
     const role = localStorage.getItem("role");
 
-    // Get display name based on email
+    // State for user profile data
+    const [userProfile, setUserProfile] = useState({
+        name: name || "User",
+        jobTitle: role ? role.charAt(0).toUpperCase() + role.slice(1) : "Employee",
+        phone: "N/A"
+    });
+
+    // Get display name (first name only)
     const getDisplayName = () => {
-        if (email === "peoplesoftent.manager@gmail.com") {
-            return "Jack";
-        } else if (email === "peoplesoftent.hr@gmail.com") {
-            return "Jasmin";
-        } else if (email === "peoplesoftent.employee@gmail.com") {
-            return "Maria";
-        } else {
-            return name ? name.split(" ")[0] : "User";
-        }
+        return userProfile.name ? userProfile.name.split(" ")[0] : "User";
     };
 
+    // Get full name
     const getFullName = () => {
-        if (email === "peoplesoftent.manager@gmail.com") {
-            return "Jack Fernandes";
-        } else if (email === "peoplesoftent.hr@gmail.com") {
-            return "Jasmin Park";
-        } else if (email === "peoplesoftent.employee@gmail.com") {
-            return "Maria Fisher";
-        } else {
-            return name || "User";
-        }
+        return userProfile.name || "User";
     };
 
+    // Get job title
     const getJobTitle = () => {
-        if (email === "peoplesoftent.manager@gmail.com") {
-            return "Engineering Manager";
-        } else if (email === "peoplesoftent.hr@gmail.com") {
-            return "HR Manager";
-        } else if (email === "peoplesoftent.employee@gmail.com") {
-            return "Senior Developer";
-        } else {
-            return role ? role.charAt(0).toUpperCase() + role.slice(1) : "Employee";
-        }
+        return userProfile.jobTitle;
     };
 
+    // Get phone number
     const getPhoneNumber = () => {
-        if (email === "peoplesoftent.manager@gmail.com") {
-            return "669-210-0987";
-        } else if (email === "peoplesoftent.hr@gmail.com") {
-            return "682-340-1098";
-        } else if (email === "peoplesoftent.employee@gmail.com") {
-            return "612-321-9865";
-        } else {
-            return "N/A";
-        }
+        return userProfile.phone;
     };
 
+    // Profile image - keep hardcoded based on email
     const getProfileImage = () => {
         if (email === "peoplesoftent.manager@gmail.com") {
             return "/images/manager_profile.jpg";
@@ -73,7 +52,7 @@ export default function Dashboard() {
         } else if (email === "peoplesoftent.employee@gmail.com") {
             return "/images/employee_profile.jpg";
         } else {
-            return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=random&size=200`;
+            return `https://ui-avatars.com/api/?name=${encodeURIComponent(userProfile.name || 'User')}&background=random&size=200`;
         }
     };
 
@@ -107,6 +86,7 @@ export default function Dashboard() {
     const [recent, setRecent] = useState([]);
     const [quarterly, setQuarterly] = useState(null);
     const [currentNewsIndex, setCurrentNewsIndex] = useState(0);
+    const [showNotifications, setShowNotifications] = useState(false);
     const [loading, setLoading] = useState(true);
 
     const newsItems = [
@@ -198,14 +178,14 @@ export default function Dashboard() {
 
         const completed = quarterly.goals_completed || quarterly.GoalsCompleted || 0;
         const total = quarterly.total_goals || quarterly.TotalGoals || 0;
-        const inProgress = Math.floor((total - completed) * 0.6);
-        const notStarted = total - completed - inProgress;
+        const inProgress = stats.activeGoals || 0; // Use actual active goals from backend
+        const notStarted = Math.max(0, total - completed - inProgress);
 
         return {
             labels: ['Completed', 'In Progress', 'Not Started'],
             datasets: [
                 {
-                    data: [completed, Math.max(0, inProgress), Math.max(0, notStarted)],
+                    data: [completed, inProgress, notStarted],
                     backgroundColor: ['#38a169', '#ed8936', '#e2e8f0'],
                     borderWidth: 0,
                     hoverOffset: 4,
@@ -296,14 +276,6 @@ export default function Dashboard() {
                         </svg>
                         Employees
                     </Link>
-                    {(['hr', 'manager'].includes(role)) && (
-                        <Link to="/manager/review" className="nav-item">
-                            <svg className="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-                            </svg>
-                            Manager Review
-                        </Link>
-                    )}
 
                     {/* Holidays Section in Sidebar */}
                     <div className="nav-label">Upcoming Holidays</div>
@@ -331,21 +303,118 @@ export default function Dashboard() {
             {/* Main Content */}
             <main className="main-content">
                 {/* Top Header */}
-                <header className="top-header">
-                    <div className="search-bar">
-                        <svg width="18" height="18" fill="none" stroke="#a0aec0" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
-                        <input type="text" placeholder="Search employees, requests, goals..." />
-                    </div>
-
+                <header className="top-header" style={{ justifyContent: 'flex-end' }}>
                     <div className="header-actions">
-                        <button className="header-btn">
-                            <svg width="20" height="20" fill="none" stroke="#718096" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                            </svg>
-                            <span className="notification-dot"></span>
-                        </button>
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                className="header-btn"
+                                onClick={() => setShowNotifications(!showNotifications)}
+                            >
+                                <svg width="20" height="20" fill="none" stroke="#718096" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                                </svg>
+                                {recent.length > 0 && <span className="notification-dot"></span>}
+                            </button>
+
+                            {/* Notification Dropdown */}
+                            {showNotifications && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '50px',
+                                    right: 0,
+                                    width: '350px',
+                                    maxHeight: '400px',
+                                    overflowY: 'auto',
+                                    background: 'white',
+                                    borderRadius: '12px',
+                                    boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+                                    zIndex: 1000,
+                                    border: '1px solid #e2e8f0'
+                                }}>
+                                    <div style={{
+                                        padding: '16px',
+                                        borderBottom: '1px solid #e2e8f0',
+                                        fontWeight: '600',
+                                        fontSize: '16px',
+                                        color: '#1e293b',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
+                                    }}>
+                                        <span>Recent Activity</span>
+                                        <button
+                                            onClick={() => setShowNotifications(false)}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                fontSize: '20px',
+                                                cursor: 'pointer',
+                                                color: '#64748b',
+                                                padding: '0 4px'
+                                            }}
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                    <div style={{ padding: '8px' }}>
+                                        {recent.length > 0 ? (
+                                            recent.map((activity, index) => (
+                                                <div key={index} style={{
+                                                    padding: '12px',
+                                                    borderBottom: index < recent.length - 1 ? '1px solid #f1f5f9' : 'none',
+                                                    display: 'flex',
+                                                    gap: '12px',
+                                                    alignItems: 'flex-start'
+                                                }}>
+                                                    <div style={{
+                                                        width: '36px',
+                                                        height: '36px',
+                                                        borderRadius: '50%',
+                                                        background: activity.type === 'leave' ? '#dbeafe' : '#fef3c7',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        flexShrink: 0,
+                                                        fontSize: '16px'
+                                                    }}>
+                                                        {activity.type === 'leave' ? '📅' : '🎯'}
+                                                    </div>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{
+                                                            fontSize: '14px',
+                                                            color: '#1e293b',
+                                                            fontWeight: '500',
+                                                            marginBottom: '4px'
+                                                        }}>
+                                                            {activity.message || activity.Message}
+                                                        </div>
+                                                        <div style={{
+                                                            fontSize: '12px',
+                                                            color: '#64748b',
+                                                            marginBottom: '2px'
+                                                        }}>
+                                                            {activity.details || activity.Details}
+                                                        </div>
+                                                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                                                            {activity.time || activity.Time}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div style={{
+                                                padding: '32px 16px',
+                                                textAlign: 'center',
+                                                color: '#94a3b8',
+                                                fontSize: '14px'
+                                            }}>
+                                                No recent activity
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                         <div className="user-profile">
                             <img src={getProfileImage()} alt={displayName} className="user-avatar" />
                             <div className="user-info">
@@ -518,7 +587,6 @@ export default function Dashboard() {
                                     <span>🔔</span>
                                     Recent Activity
                                 </h3>
-                                <span className="card-action">View All</span>
                             </div>
                             <div className="card-body">
                                 <div className="activity-list">

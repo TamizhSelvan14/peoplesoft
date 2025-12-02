@@ -40,12 +40,13 @@ export default function Leaves() {
   const [error, setError] = useState('')
 
   const role = localStorage.getItem('role') || ''
+  const currentUserID = parseInt(localStorage.getItem('userID') || '0', 10)
 
   const isManager = role === 'manager'
   const isHR = role === 'hr'
 
-  // Managers can approve only in "My Team"; HR can approve always
-  const canApprove = (isManager && view === 'team') || isHR
+  // Managers and HR can approve only in "My Team" view, not their own leaves
+  const canApprove = (isManager || isHR) && view === 'team'
   // Any user can withdraw their own pending leaves in "My Leaves"
   const canWithdraw = view === 'my'
   // Show Action column only if there is any possible action
@@ -125,8 +126,15 @@ export default function Leaves() {
   }
 
   const withdraw = async (id) => {
-    await client.put(`/api/leaves/${id}/withdraw`)
-    view === 'team' ? loadTeam() : loadMy()
+    if (!window.confirm('Are you sure you want to withdraw this leave request? This will permanently delete it.')) {
+      return
+    }
+    try {
+      await client.put(`/api/leaves/${id}/withdraw`)
+      view === 'team' ? loadTeam() : loadMy()
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to withdraw leave')
+    }
   }
 
   const getStatusBadge = (status) => {
@@ -288,8 +296,13 @@ export default function Leaves() {
                     const status = (r.status || r.Status || '').toLowerCase()
                     const userName = r.user_name || r.UserName || r.user_id || r.UserID
                     const approvedByName = r.approved_by_name || r.ApprovedByName || '-'
+                    const leaveUserID = r.user_id || r.UserID
 
-                    const canActApprove = canApprove && status === 'pending'
+                    // Check if this leave belongs to the current user
+                    const isOwnLeave = leaveUserID === currentUserID
+
+                    // Users cannot approve/reject their own leaves, even HR
+                    const canActApprove = canApprove && status === 'pending' && !isOwnLeave
                     const canActWithdraw = canWithdraw && status === 'pending'
 
                     return (

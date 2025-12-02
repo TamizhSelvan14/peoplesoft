@@ -19,11 +19,6 @@ export default function Performance() {
   const [reports, setReports] = useState([]);
   const [filters, setFilters] = useState({ period: '', status: '' });
 
-  // Self Assessment
-  const [cycleId, setCycleId] = useState('1');
-  const [selfComments, setSelfComments] = useState('');
-  const [selfRating, setSelfRating] = useState('');
-  const [assessmentMsg, setAssessmentMsg] = useState('');
 
   useEffect(() => {
     loadData();
@@ -48,13 +43,12 @@ export default function Performance() {
   const loadReviews = async () => {
     let endpoint = '/api/pms/my-reviews'; // Default: reviews I received
 
-    if (role === 'manager') {
-      // Manager sees reviews they've GIVEN
-      endpoint = '/api/pms/reviews-given';
-    } else if (role === 'hr') {
+    if (role === 'hr') {
       // HR sees all reviews
       endpoint = '/api/pms/all-reviews';
     }
+    // Note: Managers now see reviews they RECEIVED (just like employees)
+    // If they want to see reviews they gave, they can use the Manager Review tab
 
     const { data } = await client.get(endpoint);
     setReviews(data.data || data || []);
@@ -92,26 +86,6 @@ export default function Performance() {
     }
   };
 
-  const submitSelfAssessment = async (e) => {
-    e.preventDefault();
-    setError('');
-    setAssessmentMsg('');
-
-    try {
-      const payload = {
-        cycle_id: Number(cycleId),
-        comments: selfComments
-      };
-      if (selfRating) payload.rating = Number(selfRating);
-
-      await client.post('/api/pms/self-assess', payload);
-      setAssessmentMsg('✓ Self-assessment submitted successfully!');
-      setSelfComments('');
-      setSelfRating('');
-    } catch (err) {
-      setError(err?.response?.data?.error || 'Submit failed');
-    }
-  };
 
   const exportToCSV = () => {
     const csvData = reports.map(r => ({
@@ -164,8 +138,8 @@ export default function Performance() {
         {/* Role Info Banner */}
         <div className="info-banner-glass">
           <strong>{role?.toUpperCase()} View:</strong>{' '}
-          {role === 'employee' && 'View your reviews, submit self-assessments, and track feedback.'}
-          {role === 'manager' && 'Review your team\'s performance and provide feedback.'}
+          {role === 'employee' && 'View your reviews and track feedback.'}
+          {role === 'manager' && 'View your own performance reviews from HR and track your feedback.'}
           {role === 'hr' && 'Full access to all performance data and analytics.'}
         </div>
 
@@ -184,13 +158,6 @@ export default function Performance() {
           >
             Reports & Analytics
           </button>
-
-          <button
-            onClick={() => setActiveTab('self-assessment')}
-            className={`tab-btn ${activeTab === 'self-assessment' ? 'active' : ''}`}
-          >
-            Self Assessment
-          </button>
         </div>
 
         {error && <div className="info-banner-glass" style={{ color: '#dc2626', background: 'rgba(239, 68, 68, 0.1)' }}>{error}</div>}
@@ -208,12 +175,13 @@ export default function Performance() {
                 <table className="table-styled">
                   <thead>
                     <tr>
-                      {role !== 'employee' && <th>Employee</th>}
+                      <th>Employee Name</th>
+                      <th>Title</th>
+                      <th>Goals</th>
                       <th>Review Period</th>
                       <th>Rating</th>
                       <th>Status</th>
                       <th>Comments</th>
-                      {['manager', 'hr'].includes(role) && <th>Score</th>}
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -222,12 +190,15 @@ export default function Performance() {
                       const id = review.id || review.ID;
                       const rating = review.rating || review.Rating;
                       const status = review.status || review.Status;
+                      const employeeName = review.employee_name || 'N/A';
+                      const jobTitle = review.job_title || 'N/A';
+                      const goalTitle = review.goal_title || 'No goals';
 
                       return (
                         <tr key={id}>
-                          {role !== 'employee' && (
-                            <td style={{ fontWeight: '500' }}>{review.employee_name || review.EmployeeName || 'N/A'}</td>
-                          )}
+                          <td><strong>{employeeName}</strong></td>
+                          <td><small style={{ color: '#666' }}>{jobTitle}</small></td>
+                          <td><small style={{ color: '#0066cc', fontStyle: 'italic' }}>{goalTitle}</small></td>
                           <td>{review.review_period || review.ReviewPeriod || 'Q4 2024'}</td>
                           <td>
                             <span style={{
@@ -247,20 +218,6 @@ export default function Performance() {
                               {review.comments || review.Comments || 'No comments'}
                             </small>
                           </td>
-                          {['manager', 'hr'].includes(role) && (
-                            <td>
-                              <input
-                                type="number"
-                                className="input-styled"
-                                min="0"
-                                max="5"
-                                step="0.1"
-                                defaultValue={review.score || review.Score}
-                                onBlur={(e) => updateScore(id, e.target.value)}
-                                style={{ width: '70px', padding: '6px' }}
-                              />
-                            </td>
-                          )}
                           <td>
                             <button
                               onClick={() => setSelectedReview(review)}
@@ -291,8 +248,8 @@ export default function Performance() {
                       }}></button>
                     </div>
                     <div className="modal-body">
-                      <p><strong>Employee:</strong> {selectedReview.employee_name || selectedReview.EmployeeName || 'You'}</p>
-                      <p><strong>Period:</strong> {selectedReview.review_period || selectedReview.ReviewPeriod}</p>
+                      <p><strong>Review Period:</strong> {selectedReview.review_period || selectedReview.ReviewPeriod}</p>
+                      <p><strong>Rating:</strong> {selectedReview.rating || selectedReview.Rating}/5</p>
 
                       <textarea
                         className="input-styled"
@@ -425,8 +382,9 @@ export default function Performance() {
                   <table className="table-styled">
                     <thead>
                       <tr>
-                        <th>Employee</th>
-                        {role !== 'employee' && <th>Department</th>}
+                        <th>Employee Name</th>
+                        <th>Department</th>
+                        <th>Goal Titles</th>
                         <th>Cycle</th>
                         <th>Avg Rating</th>
                         <th>Goals</th>
@@ -439,13 +397,15 @@ export default function Performance() {
                         const completed = report.goals_completed || report.GoalsCompleted || 0;
                         const total = report.goals_total || report.GoalsTotal || 1;
                         const percentage = Math.round((completed / total) * 100);
+                        const employeeName = report.employee_name || 'N/A';
+                        const departmentName = report.department_name || 'N/A';
+                        const goalTitles = report.goal_titles || 'No goals';
 
                         return (
                           <tr key={idx}>
-                            <td style={{ fontWeight: '500' }}>{report.employee_name || report.EmployeeName}</td>
-                            {role !== 'employee' && (
-                              <td>{report.department_name || report.DepartmentName}</td>
-                            )}
+                            <td><strong>{employeeName}</strong></td>
+                            <td><small style={{ color: '#666' }}>{departmentName}</small></td>
+                            <td><small style={{ color: '#0066cc', fontStyle: 'italic' }}>{goalTitles}</small></td>
                             <td>Cycle {report.cycle_id || report.CycleID}</td>
                             <td>
                               <span style={{
@@ -491,84 +451,6 @@ export default function Performance() {
           </div>
         )}
 
-        {/* TAB: Self Assessment */}
-        {activeTab === 'self-assessment' && (
-          <div className="glass-panel">
-            <h2 style={{ fontSize: '18px', marginBottom: '16px', color: '#1e293b' }}>Submit Self Assessment</h2>
-            <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
-              Reflect on your performance and provide a self-assessment for the review cycle.
-            </p>
-
-            <form onSubmit={submitSelfAssessment} style={{ maxWidth: '600px' }}>
-              <div className="mb-3">
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', fontSize: '14px' }}>
-                  Review Cycle
-                </label>
-                <select
-                  className="select-styled"
-                  value={cycleId}
-                  onChange={(e) => setCycleId(e.target.value)}
-                  required
-                >
-                  <option value="1">Cycle 1 - Q1 2025</option>
-                  <option value="2">Cycle 2 - Q2 2025</option>
-                  <option value="3">Cycle 3 - Q3 2025</option>
-                  <option value="4">Cycle 4 - Q4 2025</option>
-                </select>
-              </div>
-
-              <div className="mb-3">
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', fontSize: '14px' }}>
-                  Self Rating (Optional)
-                </label>
-                <select
-                  className="select-styled"
-                  value={selfRating}
-                  onChange={(e) => setSelfRating(e.target.value)}
-                >
-                  <option value="">Select rating...</option>
-                  <option value="5">5 - Exceptional</option>
-                  <option value="4">4 - Exceeds Expectations</option>
-                  <option value="3">3 - Meets Expectations</option>
-                  <option value="2">2 - Needs Improvement</option>
-                  <option value="1">1 - Unsatisfactory</option>
-                </select>
-              </div>
-
-              <div className="mb-4">
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', fontSize: '14px' }}>
-                  Comments & Reflections
-                </label>
-                <textarea
-                  className="input-styled"
-                  rows={6}
-                  value={selfComments}
-                  onChange={(e) => setSelfComments(e.target.value)}
-                  placeholder="Describe your achievements, challenges, and areas for growth..."
-                  required
-                />
-              </div>
-
-              <button type="submit" className="btn-gradient">
-                Submit Self Assessment
-              </button>
-
-              {assessmentMsg && (
-                <div style={{
-                  marginTop: '20px',
-                  padding: '15px',
-                  backgroundColor: '#d4edda',
-                  color: '#155724',
-                  borderRadius: '10px',
-                  fontWeight: 'bold',
-                  fontSize: '14px'
-                }}>
-                  {assessmentMsg}
-                </div>
-              )}
-            </form>
-          </div>
-        )}
       </div>
     </div>
   );

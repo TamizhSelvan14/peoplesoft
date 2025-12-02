@@ -542,7 +542,7 @@ func executeAction(action *ChatbotAction, userID uint, c *gin.Context) (string, 
 	}
 }
 
-// applyLeave creates a leave request
+// applyLeave creates a leave request using the same logic as CreateLeave API
 func applyLeave(params map[string]interface{}, userID uint, c *gin.Context) (string, error) {
 	// Extract parameters
 	startDateStr, ok := params["start_date"].(string)
@@ -559,66 +559,89 @@ func applyLeave(params map[string]interface{}, userID uint, c *gin.Context) (str
 	if !ok || leaveType == "" {
 		leaveType = "casual" // default
 	}
+	leaveType = strings.ToLower(leaveType)
 
 	reason := ""
 	if r, ok := params["reason"].(string); ok {
 		reason = r
 	}
 
-	// Parse dates
-	startDate, err := time.Parse("2006-01-02", startDateStr)
+	// Parse dates in local timezone to avoid timezone offset issues
+	loc := time.Local
+	start, err1 := time.ParseInLocation("2006-01-02", startDateStr, loc)
+	end, err2 := time.ParseInLocation("2006-01-02", endDateStr, loc)
+	if err1 != nil || err2 != nil {
+		return "", fmt.Errorf("invalid date format, expected YYYY-MM-DD")
+	}
+
+	// Disallow dates before today
+	today := time.Now().Truncate(24 * time.Hour)
+	if start.Before(today) || end.Before(today) {
+		return "", fmt.Errorf("cannot request leave in the past")
+	}
+
+	// Ensure start <= end
+	if end.Before(start) {
+		return "", fmt.Errorf("end date cannot be before start date")
+	}
+
+	days := workingDaysBetween(start, end)
+	if days <= 0 {
+		return "", fmt.Errorf("no working days in selected range")
+	}
+
+	year := start.Year()
+
+	tx := config.DB.Begin()
+
+	// get or create allocation using transaction
+	alloc, err := getOrCreateAllocationTx(tx, userID, year, leaveType)
 	if err != nil {
-		return "", fmt.Errorf("invalid start_date format: %v", err)
+		tx.Rollback()
+		return "", fmt.Errorf("failed to load allocation")
 	}
 
-	endDate, err := time.Parse("2006-01-02", endDateStr)
-	if err != nil {
-		return "", fmt.Errorf("invalid end_date format: %v", err)
+	remaining := alloc.Total - alloc.Used
+	if days > remaining {
+		tx.Rollback()
+		return "", fmt.Errorf("insufficient leave balance. You have %d days of %s leave remaining, but requested %d days", remaining, leaveType, days)
 	}
 
-	// Calculate duration
-	duration := int(endDate.Sub(startDate).Hours()/24) + 1
-	if duration <= 0 {
-		return "", fmt.Errorf("end date must be after start date")
+	// block the days immediately (on apply)
+	alloc.Used += days
+	if err := tx.Save(alloc).Error; err != nil {
+		tx.Rollback()
+		return "", fmt.Errorf("failed to update allocation")
 	}
 
-	// Check leave balance
-	var allocation models.LeaveAllocation
-	if err := config.DB.Where("user_id = ? AND type = ?", userID, leaveType).First(&allocation).Error; err != nil {
-		return "", fmt.Errorf("no leave allocation found for type: %s", leaveType)
-	}
-
-	remaining := allocation.Total - allocation.Used
-	if remaining < duration {
-		return "", fmt.Errorf("insufficient leave balance. You have %d days of %s leave remaining, but requested %d days", remaining, leaveType, duration)
-	}
-
-	// Create leave request
 	leave := models.Leave{
 		UserID:    userID,
-		StartDate: startDate,
-		EndDate:   endDate,
+		StartDate: start,
+		EndDate:   end,
 		Type:      leaveType,
 		Reason:    reason,
 		Status:    "pending",
 	}
 
-	if err := config.DB.Create(&leave).Error; err != nil {
-		return "", fmt.Errorf("failed to create leave request: %v", err)
+	if err := tx.Create(&leave).Error; err != nil {
+		tx.Rollback()
+		return "", fmt.Errorf("failed to create leave: %v", err)
 	}
+
+	tx.Commit()
 
 	// Success message
 	successMsg := fmt.Sprintf("✅ Leave request submitted successfully!\n\n"+
-		"📅 Dates: %s to %s (%d days)\n"+
+		"📅 Dates: %s to %s (%d working days)\n"+
 		"📝 Type: %s\n"+
 		"⏳ Status: Pending approval\n"+
 		"💼 Remaining balance: %d/%d days",
-		startDate.Format("Jan 02, 2006"),
-		endDate.Format("Jan 02, 2006"),
-		duration,
+		start.Format("Jan 02, 2006"),
+		end.Format("Jan 02, 2006"),
+		days,
 		leaveType,
-		remaining-duration,
-		allocation.Total)
+		remaining-days,
+		alloc.Total)
 
 	if reason != "" {
 		successMsg += fmt.Sprintf("\n📄 Reason: %s", reason)
