@@ -43,7 +43,7 @@ export default function Chatbot() {
       }))
 
       const response = await axios.post(
-        'http://localhost:8080/api/chatbot/query',
+        `${import.meta.env.VITE_API_BASE_URL}/api/chatbot/query`,
         {
           question: input.trim(),
           history: history
